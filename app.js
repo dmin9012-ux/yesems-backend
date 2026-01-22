@@ -6,7 +6,7 @@ require("dotenv").config();
 // 🔹 Rutas
 const authRoutes = require("./routes/authRoutes");
 const progresoRoutes = require("./routes/progresoRoutes");
-const usuarioRoutes = require("./routes/usuarioRoutes"); // corregido a minúscula
+//const usuarioRoutes = require("./routes/usuarioRoutes"); // corregido a minúscula
 const examenRoutes = require("./routes/examenRoutes");
 const constanciaRoutes = require("./routes/constanciaRoutes");
 
@@ -41,7 +41,7 @@ app.use(express.json());
 // 🔹 Rutas base
 app.use("/api/auth", authRoutes);
 app.use("/api/progreso", progresoRoutes);
-app.use("/api/usuario", usuarioRoutes);
+//app.use("/api/usuario", usuarioRoutes);
 app.use("/api/examen", examenRoutes);
 app.use("/api/constancia", constanciaRoutes);
 
