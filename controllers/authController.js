@@ -2,7 +2,7 @@ const Usuario = require("../models/Usuario");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
-const enviarCorreo = require("../utils/enviarCorreo");
+const enviarCorreo = require("../util/enviarCorreo");
 
 /* =========================
    REGISTRO
