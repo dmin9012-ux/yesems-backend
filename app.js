@@ -12,48 +12,67 @@ const constanciaRoutes = require("./routes/constanciaRoutes");
 
 const app = express();
 
-// 🔹 Dominios permitidos
+/* =====================================================
+   🔹 CORS CONFIGURACIÓN SEGURA PARA VERCEL + RAILWAY
+===================================================== */
 const allowedOrigins = [
-    "http://localhost:5173", // desarrollo local
+    "http://localhost:5173",
     "https://yesems-frontend.vercel.app",
     "https://yesems-frontend-git-main-dmin9012-uxs-projects.vercel.app",
-    "https://yesems-frontend-8htryr9ro-dmin9012-uxs-projects.vercel.app"
 ];
 
-// 🔹 Middleware CORS
+// Permitir previews dinámicos de Vercel
+const isVercelPreview = (origin) =>
+    origin && origin.includes("vercel.app");
+
 app.use(
     cors({
-        origin: function(origin, callback) {
-                // Permitir Postman o backend a backend
-                if (!origin || allowedOrigins.includes(origin)) {
-                    callback(null, true);
-                } else {
-                    callback(new Error("No permitido por CORS: " + origin));
-                }
+        origin: (origin, callback) => {
+            // Permitir Postman, server-to-server o same-origin
+            if (!origin) return callback(null, true);
+
+            if (allowedOrigins.includes(origin) || isVercelPreview(origin)) {
+                return callback(null, true);
             }
-            // credentials: true, // opcional, solo si usas cookies
+
+            return callback(new Error(`CORS bloqueado: ${origin}`));
+        },
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
     })
 );
+
+// 🔹 Preflight explícito
+app.options("*", cors());
 
 // 🔹 Middleware para JSON
 app.use(express.json());
 
-// 🔹 Rutas base
+/* =====================================================
+   🔹 RUTAS API
+===================================================== */
 app.use("/api/auth", authRoutes);
+app.use("/api/usuario", usuarioRoutes);
 app.use("/api/progreso", progresoRoutes);
 app.use("/api/examen", examenRoutes);
 app.use("/api/constancia", constanciaRoutes);
-app.use("/api/usuario", usuarioRoutes);
 
-
-// 🔹 Health check
+/* =====================================================
+   🔹 HEALTH CHECK
+===================================================== */
 app.get("/", (req, res) => {
-    res.send("✅ Backend funcionando");
+    res.status(200).json({
+        ok: true,
+        message: "✅ Backend YESems funcionando correctamente",
+    });
 });
 
-// 🔹 Middleware de error global
+/* =====================================================
+   🔹 MANEJO GLOBAL DE ERRORES
+===================================================== */
 app.use((err, req, res, next) => {
     console.error("❌ Error global:", err.message);
+
     res.status(err.statusCode || 500).json({
         ok: false,
         message: err.message || "Error interno del servidor",
