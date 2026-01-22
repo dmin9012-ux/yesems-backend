@@ -6,6 +6,7 @@ require("dotenv").config();
 // 🔹 Rutas
 const authRoutes = require("./routes/authRoutes");
 const progresoRoutes = require("./routes/progresoRoutes");
+const usuarioRoutes = require("./routes/usuarioRoutes");
 const examenRoutes = require("./routes/examenRoutes");
 const constanciaRoutes = require("./routes/constanciaRoutes");
 
@@ -42,6 +43,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/progreso", progresoRoutes);
 app.use("/api/examen", examenRoutes);
 app.use("/api/constancia", constanciaRoutes);
+app.use("/api/usuario", usuarioRoutes);
+
 
 // 🔹 Health check
 app.get("/", (req, res) => {
