@@ -1,3 +1,4 @@
+// constanciaController.js
 const ProgresoCurso = require("../models/ProgresoCurso");
 const Usuario = require("../models/Usuario");
 const { generarConstanciaPDF } = require("../services/constanciaPdf");
@@ -28,7 +29,6 @@ const generarConstancia = async(req, res) => {
 
         // 👤 Obtener usuario
         const usuario = await Usuario.findById(usuarioId).select("nombre");
-
         if (!usuario) {
             return res.status(404).json({
                 ok: false,
@@ -38,7 +38,6 @@ const generarConstancia = async(req, res) => {
 
         // 📘 Obtener curso desde Firebase
         const curso = await obtenerCursoPorId(cursoId);
-
         if (!curso) {
             return res.status(404).json({
                 ok: false,
@@ -53,6 +52,7 @@ const generarConstancia = async(req, res) => {
             fechaFinalizacion: progreso.fechaFinalizacion || new Date(),
         });
 
+        // Nombre de archivo seguro
         const nombreArchivo = `Constancia-${curso.nombre
             .replace(/[^a-zA-Z0-9]/g, "_")
             .toLowerCase()}.pdf`;

@@ -1,9 +1,15 @@
+// constanciaPdf.js
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
 const path = require("path");
 
 /**
  * Genera una constancia en PDF moderna
+ * @param {Object} param0
+ * @param {string} param0.nombreUsuario
+ * @param {string} param0.nombreCurso
+ * @param {Date|string} param0.fechaFinalizacion
+ * @returns {Promise<Buffer>} PDF en buffer
  */
 function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion }) {
     return new Promise((resolve, reject) => {
@@ -18,7 +24,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             doc.on("end", () => resolve(Buffer.concat(buffers)));
 
             /* ============================
-               LOGO YESems (ARREGLADO)
+               LOGO YESems
             ============================ */
             const logoPath = path.resolve(process.cwd(), "assets/logo-yesems.png");
 
@@ -37,9 +43,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 .font("Helvetica-Bold")
                 .fontSize(28)
                 .fillColor("#1F4ED8")
-                .text("CONSTANCIA DE FINALIZACIÓN", {
-                    align: "center",
-                });
+                .text("CONSTANCIA DE FINALIZACIÓN", { align: "center" });
 
             doc.moveDown(0.8);
 
@@ -59,9 +63,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 .fontSize(14)
                 .fillColor("#000")
                 .font("Helvetica")
-                .text("Por medio de la presente se hace constar que:", {
-                    align: "center",
-                });
+                .text("Por medio de la presente se hace constar que:", { align: "center" });
 
             doc.moveDown(2);
 
@@ -76,9 +78,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 .fillColor("#2C3E50")
                 .font("Helvetica-Bold")
                 .fontSize(22)
-                .text(nombreUsuario, 0, doc.y + 15, {
-                    align: "center",
-                });
+                .text(nombreUsuario, 0, doc.y + 15, { align: "center" });
 
             doc.moveDown(3);
 
@@ -89,9 +89,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 .fontSize(14)
                 .font("Helvetica")
                 .fillColor("#000")
-                .text("ha completado satisfactoriamente el curso:", {
-                    align: "center",
-                });
+                .text("ha completado satisfactoriamente el curso:", { align: "center" });
 
             doc.moveDown(1);
 
@@ -99,9 +97,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 .fontSize(20)
                 .font("Helvetica-Bold")
                 .fillColor("#1F4ED8")
-                .text(nombreCurso, {
-                    align: "center",
-                });
+                .text(nombreCurso, { align: "center" });
 
             doc.moveDown(2);
 
@@ -118,9 +114,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 .fontSize(12)
                 .fillColor("#000")
                 .font("Helvetica")
-                .text(`Fecha de finalización: ${fecha}`, {
-                    align: "center",
-                });
+                .text(`Fecha de finalización: ${fecha}`, { align: "center" });
 
             doc.moveDown(5);
 
@@ -130,13 +124,9 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             doc
                 .fontSize(12)
                 .fillColor("#000")
-                .text("______________________________", {
-                    align: "center",
-                })
+                .text("______________________________", { align: "center" })
                 .moveDown(0.5)
-                .text("YESems Plataforma Educativa", {
-                    align: "center",
-                });
+                .text("YESems Plataforma Educativa", { align: "center" });
 
             doc.end();
         } catch (error) {

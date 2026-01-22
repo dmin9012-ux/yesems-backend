@@ -1,3 +1,4 @@
+// models/Usuario.js
 const mongoose = require("mongoose");
 
 const UsuarioSchema = new mongoose.Schema({
@@ -30,32 +31,36 @@ const UsuarioSchema = new mongoose.Schema({
 
     tokenVerificacion: {
         type: String,
+        default: null,
     },
 
     tokenExpira: {
         type: Date,
+        default: null,
     },
 
     /* ===============================
        🔐 RECUPERAR CONTRASEÑA
     =============================== */
-    // Token antiguo (opcional, lo dejamos por compatibilidad)
     resetPasswordToken: {
         type: String,
+        default: null,
     },
 
-    // Expiración del token antiguo
     resetPasswordExpires: {
         type: Date,
+        default: null,
     },
 
-    // ✅ Nuevo flujo con código de 6 dígitos
+    // Nuevo flujo: código de 6 dígitos
     resetPasswordCode: {
         type: String,
+        default: null,
     },
 
     resetPasswordCodeExpires: {
         type: Date,
+        default: null,
     },
 
     /* ===============================
@@ -74,7 +79,7 @@ const UsuarioSchema = new mongoose.Schema({
     },
 
     /* ===============================
-       📊 PROGRESO
+       📊 PROGRESO DEL USUARIO
     =============================== */
     leccionesValidadas: {
         type: [String],
@@ -85,9 +90,10 @@ const UsuarioSchema = new mongoose.Schema({
         type: [String],
         default: [],
     },
+
 }, {
     timestamps: true,
 });
 
-module.exports =
-    mongoose.models.Usuario || mongoose.model("Usuario", UsuarioSchema);
+// Evitar redefinir el modelo en entornos con hot reload (Next.js / Vercel)
+module.exports = mongoose.models.Usuario || mongoose.model("Usuario", UsuarioSchema);

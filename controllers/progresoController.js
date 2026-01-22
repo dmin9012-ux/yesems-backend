@@ -1,3 +1,4 @@
+// controllers/progresoController.js
 const ProgresoCurso = require("../models/ProgresoCurso");
 const Usuario = require("../models/Usuario");
 const {
@@ -82,9 +83,7 @@ exports.validarLeccion = async(req, res) => {
         await progreso.save();
 
         await Usuario.findByIdAndUpdate(
-            usuarioId, {
-                $addToSet: { leccionesValidadas: leccionId },
-            }, { new: true }
+            usuarioId, { $addToSet: { leccionesValidadas: leccionId } }, { new: true }
         );
 
         return res.json({
@@ -109,12 +108,29 @@ exports.obtenerProgresoCurso = async(req, res) => {
         const usuarioId = req.usuario.id;
         const { cursoId } = req.params;
 
+        if (!cursoId) {
+            return res.status(400).json({
+                ok: false,
+                message: "cursoId es obligatorio",
+            });
+        }
+
         const progreso = await ProgresoCurso.findOne({
             usuario: usuarioId,
             cursoId,
         });
 
-        return res.json(progreso || null);
+        if (!progreso) {
+            return res.status(404).json({
+                ok: false,
+                message: "No se encontró progreso para este curso",
+            });
+        }
+
+        return res.json({
+            ok: true,
+            progreso,
+        });
     } catch (error) {
         console.error("❌ Error obtenerProgresoCurso:", error);
         return res.status(500).json({
@@ -133,7 +149,10 @@ exports.obtenerMisProgresos = async(req, res) => {
 
         const progresos = await ProgresoCurso.find({ usuario: usuarioId });
 
-        return res.json(progresos);
+        return res.json({
+            ok: true,
+            progresos,
+        });
     } catch (error) {
         console.error("❌ Error obtenerMisProgresos:", error);
         return res.status(500).json({

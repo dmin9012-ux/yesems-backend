@@ -1,11 +1,12 @@
+// app.js
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
-// Rutas
+// 🔹 Rutas
 const authRoutes = require("./routes/authRoutes");
 const progresoRoutes = require("./routes/progresoRoutes");
-const usuarioRoutes = require("./routes/UsuarioRoutes"); // todo minúscula
+const usuarioRoutes = require("./routes/usuarioRoutes"); // corregido a minúscula
 const examenRoutes = require("./routes/examenRoutes");
 const constanciaRoutes = require("./routes/constanciaRoutes");
 
@@ -13,37 +14,31 @@ const app = express();
 
 // 🔹 Dominios permitidos
 const allowedOrigins = [
-    "http://localhost:5173", // para desarrollo local
+    "http://localhost:5173", // desarrollo local
     "https://yesems-frontend.vercel.app",
     "https://yesems-frontend-git-main-dmin9012-uxs-projects.vercel.app",
     "https://yesems-frontend-8htryr9ro-dmin9012-uxs-projects.vercel.app"
 ];
 
-// Middleware CORS
+// 🔹 Middleware CORS
 app.use(
     cors({
         origin: function(origin, callback) {
-            // Si no hay origin (Postman o backend a backend), permitir
-            if (!origin || allowedOrigins.includes(origin)) {
-                callback(null, true);
-            } else {
-                callback(new Error("No permitido por CORS: " + origin));
+                // Permitir Postman o backend a backend
+                if (!origin || allowedOrigins.includes(origin)) {
+                    callback(null, true);
+                } else {
+                    callback(new Error("No permitido por CORS: " + origin));
+                }
             }
-        },
-        credentials: true,
+            // credentials: true, // opcional, solo si usas cookies
     })
 );
 
+// 🔹 Middleware para JSON
 app.use(express.json());
 
-// 🔹 Consola para debug de rutas
-console.log("authRoutes:", authRoutes);
-console.log("progresoRoutes:", progresoRoutes);
-console.log("usuarioRoutes:", usuarioRoutes);
-console.log("examenRoutes:", examenRoutes);
-console.log("constanciaRoutes:", constanciaRoutes);
-
-// 🔹 Rutas
+// 🔹 Rutas base
 app.use("/api/auth", authRoutes);
 app.use("/api/progreso", progresoRoutes);
 app.use("/api/usuario", usuarioRoutes);
@@ -55,12 +50,12 @@ app.get("/", (req, res) => {
     res.send("✅ Backend funcionando");
 });
 
-// 🔹 Error global
+// 🔹 Middleware de error global
 app.use((err, req, res, next) => {
     console.error("❌ Error global:", err.message);
-    res.status(500).json({
+    res.status(err.statusCode || 500).json({
         ok: false,
-        message: "Error interno del servidor",
+        message: err.message || "Error interno del servidor",
     });
 });
 

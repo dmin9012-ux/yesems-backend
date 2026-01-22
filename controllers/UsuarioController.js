@@ -56,20 +56,13 @@ exports.cambiarMiPassword = async(req, res) => {
 
         const valida = await bcrypt.compare(passwordActual, usuario.password);
         if (!valida) {
-            return res.status(400).json({
-                ok: false,
-                message: "La contraseña actual no es correcta"
-            });
+            return res.status(400).json({ ok: false, message: "La contraseña actual no es correcta" });
         }
 
-        const salt = await bcrypt.genSalt(10);
-        usuario.password = await bcrypt.hash(passwordNueva, salt);
+        usuario.password = await bcrypt.hash(passwordNueva, await bcrypt.genSalt(10));
         await usuario.save();
 
-        res.json({
-            ok: true,
-            message: "Contraseña actualizada correctamente"
-        });
+        res.json({ ok: true, message: "Contraseña actualizada correctamente" });
     } catch (error) {
         console.error(error);
         res.status(500).json({ ok: false, message: "Error al cambiar contraseña" });
@@ -88,7 +81,7 @@ exports.eliminarMiCuenta = async(req, res) => {
 };
 
 /* =====================================================
-   🔐 RECUPERAR CONTRASEÑA (YES EMS · FLUJO 3 PASOS)
+   🔐 RECUPERAR CONTRASEÑA (FLUJO 3 PASOS)
 ===================================================== */
 
 // 1️⃣ Solicitar código
@@ -96,7 +89,6 @@ exports.solicitarResetPasswordCode = async(req, res) => {
     try {
         const { email } = req.body;
 
-        // Respuesta genérica por seguridad
         if (!email) {
             return res.json({
                 ok: true,
@@ -112,45 +104,26 @@ exports.solicitarResetPasswordCode = async(req, res) => {
             });
         }
 
-        // Código de 6 dígitos
         const codigo = Math.floor(100000 + Math.random() * 900000).toString();
-
         usuario.resetPasswordCode = codigo;
-        usuario.resetPasswordCodeExpires = Date.now() + 10 * 60 * 1000;
+        usuario.resetPasswordCodeExpires = Date.now() + 10 * 60 * 1000; // 10 minutos
         await usuario.save();
 
         const contenidoHTML = `
-            <p>Hola <strong>${usuario.nombre}</strong>,</p>
+      <p>Hola <strong>${usuario.nombre}</strong>,</p>
+      <p>Recibimos una solicitud para restablecer tu contraseña en <strong>YES EMS</strong>.</p>
+      <p>Ingresa el siguiente código en la aplicación:</p>
+      <div class="code-box">${codigo}</div>
+      <p>Este código es válido por <strong>10 minutos</strong>.</p>
+      <p class="warning">Si no solicitaste este cambio, puedes ignorar este correo.</p>
+    `;
 
-            <p>
-                Recibimos una solicitud para restablecer tu contraseña en
-                <strong>YES EMS</strong>.
-            </p>
-
-            <p>Ingresa el siguiente código en la aplicación:</p>
-
-            <div class="code-box">${codigo}</div>
-
-            <p>
-                Este código es válido por <strong>10 minutos</strong>.
-            </p>
-
-            <p class="warning">
-                Si no solicitaste este cambio, puedes ignorar este correo.
-            </p>
-        `;
-
-        await enviarCorreo(
-            usuario.email,
-            "Recuperación de contraseña",
-            contenidoHTML
-        );
+        await enviarCorreo(usuario.email, "Recuperación de contraseña", contenidoHTML);
 
         res.json({
             ok: true,
             message: "Si el correo existe, se enviará un código de recuperación"
         });
-
     } catch (error) {
         console.error(error);
         res.status(500).json({ ok: false, message: "Error al solicitar código" });
@@ -163,10 +136,7 @@ exports.verificarResetPasswordCode = async(req, res) => {
         const { email, codigo } = req.body;
 
         if (!email || !codigo) {
-            return res.status(400).json({
-                ok: false,
-                message: "Datos incompletos"
-            });
+            return res.status(400).json({ ok: false, message: "Datos incompletos" });
         }
 
         const usuario = await Usuario.findOne({
@@ -176,17 +146,10 @@ exports.verificarResetPasswordCode = async(req, res) => {
         });
 
         if (!usuario) {
-            return res.status(400).json({
-                ok: false,
-                message: "El código es inválido o ha expirado"
-            });
+            return res.status(400).json({ ok: false, message: "El código es inválido o ha expirado" });
         }
 
-        res.json({
-            ok: true,
-            message: "Código verificado correctamente"
-        });
-
+        res.json({ ok: true, message: "Código verificado correctamente" });
     } catch (error) {
         console.error(error);
         res.status(500).json({ ok: false, message: "Error al verificar código" });
@@ -199,10 +162,7 @@ exports.resetPasswordConCodigo = async(req, res) => {
         const { email, codigo, passwordNueva } = req.body;
 
         if (!email || !codigo || !passwordNueva) {
-            return res.status(400).json({
-                ok: false,
-                message: "Datos incompletos"
-            });
+            return res.status(400).json({ ok: false, message: "Datos incompletos" });
         }
 
         const usuario = await Usuario.findOne({
@@ -212,25 +172,15 @@ exports.resetPasswordConCodigo = async(req, res) => {
         });
 
         if (!usuario) {
-            return res.status(400).json({
-                ok: false,
-                message: "El código es inválido o ha expirado"
-            });
+            return res.status(400).json({ ok: false, message: "El código es inválido o ha expirado" });
         }
 
-        const salt = await bcrypt.genSalt(10);
-        usuario.password = await bcrypt.hash(passwordNueva, salt);
-
+        usuario.password = await bcrypt.hash(passwordNueva, await bcrypt.genSalt(10));
         usuario.resetPasswordCode = undefined;
         usuario.resetPasswordCodeExpires = undefined;
-
         await usuario.save();
 
-        res.json({
-            ok: true,
-            message: "Contraseña restablecida correctamente"
-        });
-
+        res.json({ ok: true, message: "Contraseña restablecida correctamente" });
     } catch (error) {
         console.error(error);
         res.status(500).json({ ok: false, message: "Error al restablecer contraseña" });
@@ -273,8 +223,7 @@ exports.crearUsuario = async(req, res) => {
             return res.status(400).json({ ok: false, message: "El usuario ya existe" });
         }
 
-        const salt = await bcrypt.genSalt(10);
-        const hash = await bcrypt.hash(password, salt);
+        const hash = await bcrypt.hash(password, await bcrypt.genSalt(10));
 
         const usuario = new Usuario({
             nombre,
@@ -286,7 +235,6 @@ exports.crearUsuario = async(req, res) => {
 
         await usuario.save();
         res.status(201).json({ ok: true, message: "Usuario creado correctamente" });
-
     } catch (error) {
         console.error(error);
         res.status(500).json({ ok: false, message: "Error al crear usuario" });
@@ -327,10 +275,11 @@ exports.eliminarUsuario = async(req, res) => {
 exports.cambiarPassword = async(req, res) => {
     try {
         const { passwordNueva } = req.body;
+        if (!passwordNueva) {
+            return res.status(400).json({ ok: false, message: "La nueva contraseña es obligatoria" });
+        }
 
-        const salt = await bcrypt.genSalt(10);
-        const hash = await bcrypt.hash(passwordNueva, salt);
-
+        const hash = await bcrypt.hash(passwordNueva, await bcrypt.genSalt(10));
         await Usuario.findByIdAndUpdate(req.params.id, { password: hash });
 
         res.json({ ok: true, message: "Contraseña actualizada correctamente" });

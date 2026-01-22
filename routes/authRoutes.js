@@ -1,20 +1,19 @@
+// routes/authRoutes.js
 const express = require("express");
 const router = express.Router();
 
 const authController = require("../controllers/authController");
 
-console.log("AUTH CONTROLLER:", authController);
-
-// Registro
+// 🔹 Registro de usuario
 router.post("/register", authController.registro);
 
-// Verificar cuenta
+// 🔹 Verificar cuenta por token
 router.get("/verificar/:token", authController.verificar);
 
-// Reenviar verificación
+// 🔹 Reenviar correo de verificación
 router.post("/reenviar-verificacion", authController.reenviarVerificacion);
 
-// Login
+// 🔹 Login de usuario
 router.post("/login", authController.login);
 
 module.exports = router;
