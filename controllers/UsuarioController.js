@@ -1,6 +1,6 @@
 const Usuario = require("../models/Usuario");
 const bcrypt = require("bcryptjs");
-const enviarCorreo = require("../Utils/enviarCorreo");
+const enviarCorreo = require("../util/enviarCorreo");
 
 /* =====================================================
    👤 USUARIO NORMAL
