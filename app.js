@@ -6,7 +6,7 @@ require("dotenv").config();
 // 🔹 Rutas
 const authRoutes = require("./routes/authRoutes");
 const progresoRoutes = require("./routes/progresoRoutes");
-const usuarioRoutes = require("./routes/usuarioRoutes"); // corregido a minúscula
+const usuarioRoutes = require("./routes/usuarioRout"); // corregido a minúscula
 const examenRoutes = require("./routes/examenRoutes");
 const constanciaRoutes = require("./routes/constanciaRoutes");
 
