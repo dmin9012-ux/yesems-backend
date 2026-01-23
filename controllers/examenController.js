@@ -25,7 +25,14 @@ exports.obtenerExamenNivel = async function(req, res) {
 
         let progreso = await ProgresoCurso.findOne({ usuario: usuarioId, cursoId });
         if (!progreso) {
-            progreso = new ProgresoCurso({ usuario: usuarioId, cursoId, leccionesCompletadas: [], nivelesAprobados: [], intentosExamen: [], completado: false });
+            progreso = new ProgresoCurso({
+                usuario: usuarioId,
+                cursoId,
+                leccionesCompletadas: [],
+                nivelesAprobados: [],
+                intentosExamen: [],
+                completado: false
+            });
         }
 
         if (progreso.nivelesAprobados.includes(nivel)) {
@@ -36,7 +43,19 @@ exports.obtenerExamenNivel = async function(req, res) {
         let intento = progreso.intentosExamen.slice().reverse().find(i => i.nivel === nivel && i.respuestas.length === 0);
 
         if (!intento) {
-            intento = { nivel, preguntas: preguntasBase.map(p => ({ id: p.id, pregunta: p.pregunta, opciones: p.opciones, correcta: p.correcta })), respuestas: [], aprobado: false, porcentaje: 0, fecha: new Date() };
+            intento = {
+                nivel,
+                preguntas: preguntasBase.map(p => ({
+                    id: p.id,
+                    pregunta: p.pregunta,
+                    opciones: p.opciones,
+                    correcta: p.correcta
+                })),
+                respuestas: [],
+                aprobado: false,
+                porcentaje: 0,
+                fecha: new Date()
+            };
             progreso.intentosExamen.push(intento);
             await progreso.save();
         }
@@ -79,7 +98,8 @@ exports.enviarExamenNivel = async function(req, res) {
         if (!intento) return res.status(400).json({ ok: false, message: "No se encontró intento válido" });
 
         // Calcular porcentaje
-        const correctas = respuestas.reduce((acc, r) => acc + intento.preguntas.filter(p => p.id === r.preguntaId && p.correcta === r.respuesta).length, 0);
+        const correctas = respuestas.reduce((acc, r) =>
+            acc + intento.preguntas.filter(p => p.id === r.preguntaId && p.correcta === r.respuesta).length, 0);
         const total = intento.preguntas.length;
         const porcentaje = Math.round((correctas / total) * 100);
         const aprobado = porcentaje >= 80;
@@ -94,9 +114,19 @@ exports.enviarExamenNivel = async function(req, res) {
         if (aprobado) {
             if (!progreso.nivelesAprobados.includes(nivel)) progreso.nivelesAprobados.push(nivel);
             const totalNiveles = await obtenerTotalNivelesCurso(cursoId);
-            if (nivel === totalNiveles) { progreso.completado = true;
+
+            if (nivel === totalNiveles) {
+                // Curso finalizado
+                progreso.completado = true;
                 progreso.fechaFinalizacion = new Date();
-                cursoFinalizado = true; } else { siguienteNivel = nivel + 1; }
+                cursoFinalizado = true;
+
+                // 🔹 Generar constancia
+                progreso.constanciaEmitida = true;
+                progreso.constanciaUrl = `${process.env.FRONTEND_URL}/constancia/${usuarioId}/${cursoId}`;
+            } else {
+                siguienteNivel = nivel + 1;
+            }
         }
 
         await progreso.save();
