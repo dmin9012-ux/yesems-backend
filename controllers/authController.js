@@ -42,17 +42,21 @@ exports.registro = async(req, res) => {
         // Enlace de verificación
         const enlace = `${process.env.FRONTEND_URL}/verificar-correo/${tokenVerificacion}`;
 
-        await enviarCorreo(
+        // Enviar correo sin bloquear la respuesta
+        enviarCorreo(
             email,
             "Verifica tu cuenta",
             `<p>Haz clic para verificar tu cuenta:</p><a href="${enlace}">Verificar cuenta</a>`
-        );
+        ).then(ok => {
+            if (ok) console.log("Correo de verificación enviado a", email);
+            else console.warn("No se pudo enviar correo a", email);
+        }).catch(err => console.error("Error async correo:", err));
 
-        res.json({ ok: true, message: "Usuario registrado. Revisa tu correo para verificar." });
+        return res.json({ ok: true, message: "Usuario registrado. Revisa tu correo para verificar." });
 
     } catch (error) {
         console.error("❌ Error registro:", error);
-        res.status(500).json({ ok: false, message: "Error interno en registro" });
+        return res.status(500).json({ ok: false, message: "Error interno en registro" });
     }
 };
 
@@ -77,11 +81,11 @@ exports.verificar = async(req, res) => {
         usuario.tokenExpira = null;
         await usuario.save();
 
-        res.json({ ok: true, message: "Cuenta verificada correctamente" });
+        return res.json({ ok: true, message: "Cuenta verificada correctamente" });
 
     } catch (error) {
         console.error("❌ Error verificar:", error);
-        res.status(500).json({ ok: false, message: "Error interno al verificar cuenta" });
+        return res.status(500).json({ ok: false, message: "Error interno al verificar cuenta" });
     }
 };
 
@@ -115,7 +119,7 @@ exports.login = async(req, res) => {
             process.env.JWT_SECRET, { expiresIn: "7d" }
         );
 
-        res.json({
+        return res.json({
             ok: true,
             token,
             usuario: {
@@ -128,7 +132,7 @@ exports.login = async(req, res) => {
 
     } catch (error) {
         console.error("❌ Error login:", error);
-        res.status(500).json({ ok: false, message: "Error interno en login" });
+        return res.status(500).json({ ok: false, message: "Error interno en login" });
     }
 };
 
@@ -162,16 +166,20 @@ exports.reenviarVerificacion = async(req, res) => {
 
         const enlace = `${process.env.FRONTEND_URL}/verificar-correo/${tokenVerificacion}`;
 
-        await enviarCorreo(
+        // Enviar correo sin bloquear
+        enviarCorreo(
             email,
             "Reenvío de verificación",
             `<p>Haz clic para verificar tu cuenta:</p><a href="${enlace}">Verificar cuenta</a>`
-        );
+        ).then(ok => {
+            if (ok) console.log("Correo de verificación reenviado a", email);
+            else console.warn("No se pudo enviar correo a", email);
+        }).catch(err => console.error("Error async correo:", err));
 
-        res.json({ ok: true, message: "Correo de verificación reenviado" });
+        return res.json({ ok: true, message: "Correo de verificación reenviado" });
 
     } catch (error) {
         console.error("❌ Error reenviar verificación:", error);
-        res.status(500).json({ ok: false, message: "Error interno al reenviar verificación" });
+        return res.status(500).json({ ok: false, message: "Error interno al reenviar verificación" });
     }
 };
