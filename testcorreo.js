@@ -1,11 +1,14 @@
-require("dotenv").config();
-const enviarCorreo = require("./util/enviarCorreo");
+require('dotenv').config();
+const enviarCorreo = require('./util/enviarCorreo');
 
-(async() => {
-    const resultado = await enviarCorreo(
-        "fortis203@gmail.com",
-        "Prueba de correo Neubox",
-        "<p>Este es un correo de prueba desde tu dominio</p>"
-    );
-    console.log("Resultado:", resultado);
-})();
+const probarCorreo = async() => {
+    const destinatario = 'fortis203@gmail.com'; //correo para pruebas
+    const asunto = 'Prueba de correo YES EMS';
+    const contenido = `<p>Este es un correo de prueba enviado desde YES EMS en Railway con SendGrid.</p>`;
+
+    const resultado = await enviarCorreo(destinatario, asunto, contenido);
+
+    console.log('Resultado:', resultado);
+};
+
+probarCorreo();
