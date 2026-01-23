@@ -1,12 +1,11 @@
-require('dotenv').config(); // carga variables de Railway si corres local
-const enviarCorreo = require('./util/enviarCorreo');
+require("dotenv").config();
+const enviarCorreo = require("./util/enviarCorreo");
 
 (async() => {
     const resultado = await enviarCorreo(
-        'tu_correo_de_prueba@gmail.com', // tu correo real para recibir el test
-        'Prueba de correo Railway',
-        '<p>Este es un correo de prueba desde Railway usando Gmail y nodemailer.</p>'
+        "fortis203@gmail.com",
+        "Prueba de correo Neubox",
+        "<p>Este es un correo de prueba desde tu dominio</p>"
     );
-
-    console.log('Resultado:', resultado);
+    console.log("Resultado:", resultado);
 })();
