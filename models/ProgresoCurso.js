@@ -24,13 +24,32 @@ const ProgresoCursoSchema = new mongoose.Schema({
     },
 
     /* =====================================
-       ✅ NIVELES APROBADOS
-       → Ejemplo: [1,2] significa que
-         el nivel 3 está desbloqueado
+       📂 NIVELES CON LECCIONES COMPLETAS
+       → Permite saber si ya puede presentar examen
+       Ej: [1,2]
+    ===================================== */
+    nivelesConLeccionesCompletas: {
+        type: [Number],
+        default: [],
+    },
+
+    /* =====================================
+       ✅ NIVELES APROBADOS (EXAMEN)
+       → Ejemplo: [1,2]
     ===================================== */
     nivelesAprobados: {
         type: [Number],
         default: [],
+    },
+
+    /* =====================================
+       🔓 NIVELES DESBLOQUEADOS
+       → El frontend debe guiarse por esto
+       Ej: [1,2,3]
+    ===================================== */
+    nivelesDesbloqueados: {
+        type: [Number],
+        default: [1], // 🔥 Nivel 1 siempre disponible
     },
 
     /* =====================================

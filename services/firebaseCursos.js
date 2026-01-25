@@ -18,12 +18,10 @@ async function obtenerLeccionesCurso(cursoId) {
 
         for (let i = 0; i < data.niveles.length; i++) {
             const nivel = data.niveles[i];
-
-            if (!Array.isArray(nivel.lecciones)) continue;
+            if (!nivel || !Array.isArray(nivel.lecciones)) continue;
 
             for (let j = 0; j < nivel.lecciones.length; j++) {
                 const leccion = nivel.lecciones[j];
-
                 if (leccion && leccion.id) {
                     lecciones.push(leccion.id);
                 }
@@ -42,7 +40,9 @@ async function obtenerLeccionesCurso(cursoId) {
 ===================================================== */
 async function obtenerLeccionesNivel(cursoId, nivelNumero) {
     try {
-        if (!cursoId || typeof nivelNumero !== "number") return [];
+        if (!cursoId || nivelNumero === undefined || nivelNumero === null) {
+            return [];
+        }
 
         const snap = await db.collection("cursos").doc(cursoId).get();
         if (!snap.exists) return [];
@@ -53,14 +53,13 @@ async function obtenerLeccionesNivel(cursoId, nivelNumero) {
         let nivelEncontrado = null;
 
         for (let i = 0; i < data.niveles.length; i++) {
-            const n = data.niveles[i];
-            const num =
-                n.numero !== undefined && n.numero !== null ?
-                n.numero :
+            const nivel = data.niveles[i];
+            const num = (nivel.numero !== undefined && nivel.numero !== null) ?
+                nivel.numero :
                 i + 1;
 
             if (Number(num) === Number(nivelNumero)) {
-                nivelEncontrado = n;
+                nivelEncontrado = nivel;
                 break;
             }
         }
@@ -73,7 +72,6 @@ async function obtenerLeccionesNivel(cursoId, nivelNumero) {
 
         for (let i = 0; i < nivelEncontrado.lecciones.length; i++) {
             const leccion = nivelEncontrado.lecciones[i];
-
             if (leccion && leccion.id) {
                 lecciones.push(leccion.id);
             }
@@ -101,16 +99,14 @@ async function obtenerNivelDeLeccion(cursoId, leccionId) {
 
         for (let i = 0; i < data.niveles.length; i++) {
             const nivel = data.niveles[i];
-            const nivelNumero =
-                nivel.numero !== undefined && nivel.numero !== null ?
+            if (!nivel || !Array.isArray(nivel.lecciones)) continue;
+
+            const nivelNumero = (nivel.numero !== undefined && nivel.numero !== null) ?
                 nivel.numero :
                 i + 1;
 
-            if (!Array.isArray(nivel.lecciones)) continue;
-
             for (let j = 0; j < nivel.lecciones.length; j++) {
                 const leccion = nivel.lecciones[j];
-
                 if (leccion && leccion.id === leccionId) {
                     return Number(nivelNumero);
                 }
@@ -130,7 +126,9 @@ async function obtenerNivelDeLeccion(cursoId, leccionId) {
 async function obtenerPreguntasNivel(cursoId, nivelNumero, cantidad) {
     try {
         if (!cantidad) cantidad = 10;
-        if (!cursoId || typeof nivelNumero !== "number") return [];
+        if (!cursoId || nivelNumero === undefined || nivelNumero === null) {
+            return [];
+        }
 
         const snap = await db.collection("cursos").doc(cursoId).get();
         if (!snap.exists) return [];
@@ -141,14 +139,13 @@ async function obtenerPreguntasNivel(cursoId, nivelNumero, cantidad) {
         let nivelEncontrado = null;
 
         for (let i = 0; i < data.niveles.length; i++) {
-            const n = data.niveles[i];
-            const num =
-                n.numero !== undefined && n.numero !== null ?
-                n.numero :
+            const nivel = data.niveles[i];
+            const num = (nivel.numero !== undefined && nivel.numero !== null) ?
+                nivel.numero :
                 i + 1;
 
             if (Number(num) === Number(nivelNumero)) {
-                nivelEncontrado = n;
+                nivelEncontrado = nivel;
                 break;
             }
         }
@@ -161,7 +158,6 @@ async function obtenerPreguntasNivel(cursoId, nivelNumero, cantidad) {
 
         for (let i = 0; i < nivelEncontrado.preguntas.length; i++) {
             const p = nivelEncontrado.preguntas[i];
-
             if (!p ||
                 typeof p.pregunta !== "string" ||
                 !Array.isArray(p.opciones)
@@ -180,7 +176,7 @@ async function obtenerPreguntasNivel(cursoId, nivelNumero, cantidad) {
                 opciones: p.opciones,
                 correcta: p.correcta !== undefined && p.correcta !== null ?
                     p.correcta :
-                    0,
+                    0
             });
         }
 
@@ -242,5 +238,5 @@ module.exports = {
     obtenerNivelDeLeccion,
     obtenerPreguntasNivel,
     obtenerTotalNivelesCurso,
-    obtenerCursoPorId,
+    obtenerCursoPorId
 };

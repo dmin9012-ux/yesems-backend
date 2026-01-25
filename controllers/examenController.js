@@ -36,7 +36,6 @@ exports.obtenerExamenNivel = async(req, res) => {
             });
         }
 
-        // 🔑 NORMALIZAR niveles aprobados
         const nivelesAprobados = progreso.nivelesAprobados.map(n => Number(n));
 
         if (nivelesAprobados.includes(nivelNumero)) {
@@ -46,9 +45,23 @@ exports.obtenerExamenNivel = async(req, res) => {
             });
         }
 
-        // 🔁 Reusar intento pendiente si existe
+        /* 🔒 VALIDAR QUE TODAS LAS LECCIONES DEL NIVEL ESTÉN COMPLETADAS */
+        const leccionesNivel = await obtenerLeccionesNivel(cursoId, nivelNumero);
+
+        const leccionesCompletadasNivel = progreso.leccionesCompletadas.filter(
+            l => leccionesNivel.includes(l)
+        );
+
+        if (leccionesNivel.length === 0 || leccionesCompletadasNivel.length < leccionesNivel.length) {
+            return res.status(403).json({
+                ok: false,
+                message: "Debes completar todas las lecciones antes de presentar el examen",
+            });
+        }
+
+        /* 🔁 REUSAR INTENTO PENDIENTE */
         const intentoPendiente = progreso.intentosExamen.find(
-            (i) =>
+            i =>
             Number(i.nivel) === nivelNumero &&
             Array.isArray(i.respuestas) &&
             i.respuestas.length === 0
@@ -59,7 +72,7 @@ exports.obtenerExamenNivel = async(req, res) => {
                 ok: true,
                 cursoId,
                 nivel: nivelNumero,
-                preguntas: intentoPendiente.preguntas.map((p) => ({
+                preguntas: intentoPendiente.preguntas.map(p => ({
                     id: p.id,
                     pregunta: p.pregunta,
                     opciones: p.opciones,
@@ -78,11 +91,11 @@ exports.obtenerExamenNivel = async(req, res) => {
 
         const intento = {
             nivel: nivelNumero,
-            preguntas: preguntasBase.map((p) => ({
+            preguntas: preguntasBase.map(p => ({
                 id: p.id,
                 pregunta: p.pregunta,
                 opciones: p.opciones,
-                correcta: p.correcta, // 🔒 solo backend
+                correcta: p.correcta,
             })),
             respuestas: [],
             aprobado: false,
@@ -97,7 +110,7 @@ exports.obtenerExamenNivel = async(req, res) => {
             ok: true,
             cursoId,
             nivel: nivelNumero,
-            preguntas: intento.preguntas.map((p) => ({
+            preguntas: intento.preguntas.map(p => ({
                 id: p.id,
                 pregunta: p.pregunta,
                 opciones: p.opciones,
@@ -130,7 +143,6 @@ exports.enviarExamenNivel = async(req, res) => {
             });
         }
 
-        // 🔑 NORMALIZAR niveles aprobados
         const nivelesAprobados = progreso.nivelesAprobados.map(n => Number(n));
 
         if (nivelesAprobados.includes(nivelNumero)) {
@@ -143,7 +155,7 @@ exports.enviarExamenNivel = async(req, res) => {
         const intento = [...progreso.intentosExamen]
             .reverse()
             .find(
-                (i) =>
+                i =>
                 Number(i.nivel) === nivelNumero &&
                 Array.isArray(i.respuestas) &&
                 i.respuestas.length === 0
@@ -160,7 +172,7 @@ exports.enviarExamenNivel = async(req, res) => {
 
         for (let i = 0; i < respuestas.length; i++) {
             const r = respuestas[i];
-            const p = intento.preguntas.find((q) => q.id === r.preguntaId);
+            const p = intento.preguntas.find(q => q.id === r.preguntaId);
             if (p && p.correcta === r.respuesta) {
                 correctas++;
             }
@@ -174,15 +186,13 @@ exports.enviarExamenNivel = async(req, res) => {
         let minimoAprobacion = 80;
 
         if (curso && Array.isArray(curso.niveles)) {
-            const nivelCurso = curso.niveles.find(
-                (n) => Number(n.numero) === nivelNumero
-            );
-            if (
-                nivelCurso &&
-                nivelCurso.examen &&
-                typeof nivelCurso.examen.minimoAprobacion === "number"
-            ) {
-                minimoAprobacion = nivelCurso.examen.minimoAprobacion;
+            for (let i = 0; i < curso.niveles.length; i++) {
+                const n = curso.niveles[i];
+                if (Number(n.numero) === nivelNumero &&
+                    n.examen &&
+                    typeof n.examen.minimoAprobacion === "number") {
+                    minimoAprobacion = n.examen.minimoAprobacion;
+                }
             }
         }
 
@@ -191,8 +201,6 @@ exports.enviarExamenNivel = async(req, res) => {
         intento.respuestas = respuestas;
         intento.aprobado = aprobado;
         intento.porcentaje = porcentaje;
-
-        let cursoFinalizado = false;
 
         if (aprobado) {
             progreso.nivelesAprobados = Array.from(
@@ -208,7 +216,6 @@ exports.enviarExamenNivel = async(req, res) => {
             ) {
                 progreso.completado = true;
                 progreso.fechaFinalizacion = new Date();
-                cursoFinalizado = true;
             }
         }
 
@@ -219,7 +226,6 @@ exports.enviarExamenNivel = async(req, res) => {
             aprobado,
             porcentaje,
             minimoAprobacion,
-            cursoFinalizado,
         });
     } catch (error) {
         console.error("❌ Error enviarExamenNivel:", error);

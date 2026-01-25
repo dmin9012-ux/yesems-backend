@@ -13,7 +13,8 @@ const {
 exports.validarLeccion = async(req, res) => {
     try {
         const usuarioId = req.usuario.id;
-        const { cursoId, leccionId } = req.body;
+        const cursoId = req.body.cursoId;
+        const leccionId = req.body.leccionId;
 
         if (!cursoId || !leccionId) {
             return res.status(400).json({
@@ -63,10 +64,12 @@ exports.validarLeccion = async(req, res) => {
             });
         }
 
-        // 🔒 Control de avance por niveles
+        /* 🔒 BLOQUEO POR NIVEL */
+        const nivelesAprobados = progreso.nivelesAprobados.map(n => Number(n));
+
         if (nivelLeccion > 1) {
             const nivelAnterior = nivelLeccion - 1;
-            if (!progreso.nivelesAprobados.includes(nivelAnterior)) {
+            if (!nivelesAprobados.includes(nivelAnterior)) {
                 return res.status(403).json({
                     ok: false,
                     message: "Debes aprobar el examen del nivel " + nivelAnterior,
@@ -74,7 +77,7 @@ exports.validarLeccion = async(req, res) => {
             }
         }
 
-        // 🔁 Ya validada
+        /* 🔁 YA VALIDADA */
         if (progreso.leccionesCompletadas.includes(leccionId)) {
             return res.json({
                 ok: true,
@@ -105,12 +108,12 @@ exports.validarLeccion = async(req, res) => {
 };
 
 /* =========================================
-   📌 OBTENER PROGRESO DE UN CURSO (REAL)
+   📌 OBTENER PROGRESO DE UN CURSO
 ========================================= */
 exports.obtenerProgresoCurso = async(req, res) => {
     try {
         const usuarioId = req.usuario.id;
-        const { cursoId } = req.params;
+        const cursoId = req.params.cursoId;
 
         if (!cursoId) {
             return res.status(400).json({
@@ -135,24 +138,23 @@ exports.obtenerProgresoCurso = async(req, res) => {
             });
         }
 
-        const totalLecciones = await obtenerLeccionesCurso(cursoId);
+        const leccionesCurso = await obtenerLeccionesCurso(cursoId);
         const totalNiveles = await obtenerTotalNivelesCurso(cursoId);
 
         const progresoCurso =
-            totalLecciones.length > 0 ?
+            leccionesCurso.length > 0 ?
             Math.round(
-                (progreso.leccionesCompletadas.length /
-                    totalLecciones.length) *
-                100
+                (progreso.leccionesCompletadas.length / leccionesCurso.length) * 100
             ) :
             0;
 
-        // 🏁 Curso completado
+        /* 🏁 CURSO COMPLETADO (VALIDACIÓN REAL) */
         if (
-            progresoCurso === 100 &&
+            progreso.leccionesCompletadas.length === leccionesCurso.length &&
             progreso.nivelesAprobados.length === totalNiveles
         ) {
             progreso.completado = true;
+            progreso.fechaFinalizacion = new Date();
             await progreso.save();
         }
 
@@ -161,7 +163,7 @@ exports.obtenerProgresoCurso = async(req, res) => {
             progreso,
             estadisticas: {
                 progresoCurso,
-                totalLecciones: totalLecciones.length,
+                totalLecciones: leccionesCurso.length,
                 leccionesCompletadas: progreso.leccionesCompletadas.length,
                 nivelesAprobados: progreso.nivelesAprobados,
                 totalNiveles,
