@@ -1,93 +1,5 @@
 const mongoose = require("mongoose");
 
-/* =====================================================
-   🧠 SUBDOCUMENTOS
-===================================================== */
-
-const PreguntaExamenSchema = new mongoose.Schema({
-    id: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    pregunta: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    opciones: {
-        type: [String],
-        required: true,
-        validate: v => Array.isArray(v) && v.length >= 2,
-    },
-    correcta: {
-        type: Number,
-        required: true,
-        min: 0,
-    },
-}, { _id: false });
-
-const RespuestaExamenSchema = new mongoose.Schema({
-    preguntaId: {
-        type: String,
-        required: true,
-        trim: true,
-    },
-    respuesta: {
-        type: Number,
-        required: true,
-        min: 0,
-    },
-}, { _id: false });
-
-const IntentoExamenSchema = new mongoose.Schema({
-    nivel: {
-        type: Number,
-        required: true,
-        min: 1,
-        index: true,
-    },
-
-    preguntas: {
-        type: [PreguntaExamenSchema],
-        required: true,
-        validate: v => Array.isArray(v) && v.length > 0,
-    },
-
-    respuestas: {
-        type: [RespuestaExamenSchema],
-        default: [],
-    },
-
-    aprobado: {
-        type: Boolean,
-        default: false,
-        index: true,
-    },
-
-    porcentaje: {
-        type: Number,
-        default: 0,
-        min: 0,
-        max: 100,
-    },
-
-    finalizado: {
-        type: Boolean,
-        default: false,
-        index: true,
-    },
-
-    fecha: {
-        type: Date,
-        default: Date.now,
-    },
-}, { _id: false });
-
-/* =====================================================
-   📘 PROGRESO DEL CURSO
-===================================================== */
-
 const ProgresoCursoSchema = new mongoose.Schema({
     usuario: {
         type: mongoose.Schema.Types.ObjectId,
@@ -100,7 +12,6 @@ const ProgresoCursoSchema = new mongoose.Schema({
         type: String,
         required: true,
         index: true,
-        trim: true,
     },
 
     /* =====================================
@@ -109,16 +20,6 @@ const ProgresoCursoSchema = new mongoose.Schema({
     leccionesCompletadas: {
         type: [String],
         default: [],
-        index: true,
-    },
-
-    /* =====================================
-       📂 NIVELES CON LECCIONES COMPLETAS
-    ===================================== */
-    nivelesConLeccionesCompletas: {
-        type: [Number],
-        default: [],
-        index: true,
     },
 
     /* =====================================
@@ -127,25 +28,58 @@ const ProgresoCursoSchema = new mongoose.Schema({
     nivelesAprobados: {
         type: [Number],
         default: [],
-        index: true,
     },
 
     /* =====================================
-       🔓 NIVELES DESBLOQUEADOS
+       🧭 NIVEL ACTUAL DESBLOQUEADO
     ===================================== */
-    nivelesDesbloqueados: {
-        type: [Number],
-        default: [1],
-        index: true,
+    nivelActual: {
+        type: Number,
+        default: 1,
     },
 
     /* =====================================
-       📝 INTENTOS DE EXAMEN
+       📝 HISTORIAL DE EXÁMENES
     ===================================== */
-    intentosExamen: {
-        type: [IntentoExamenSchema],
-        default: [],
-    },
+    intentosExamen: [{
+        nivel: {
+            type: Number,
+            required: true,
+        },
+
+        preguntas: [{
+            id: { type: String, required: true },
+            pregunta: { type: String, required: true },
+            opciones: { type: [String], required: true },
+            correcta: { type: Number, required: true },
+        }, ],
+
+        respuestas: [{
+            preguntaId: {
+                type: String,
+                required: true,
+            },
+            respuesta: {
+                type: Number,
+                required: true,
+            },
+        }, ],
+
+        aprobado: {
+            type: Boolean,
+            default: false,
+        },
+
+        porcentaje: {
+            type: Number,
+            default: 0,
+        },
+
+        fecha: {
+            type: Date,
+            default: Date.now,
+        },
+    }, ],
 
     /* =====================================
        🏁 CURSO FINALIZADO
@@ -178,9 +112,9 @@ const ProgresoCursoSchema = new mongoose.Schema({
     versionKey: false,
 });
 
-/* =====================================================
-   🔒 UN SOLO PROGRESO POR USUARIO Y CURSO
-===================================================== */
+/* =====================================
+   🔒 UN SOLO PROGRESO POR CURSO
+===================================== */
 ProgresoCursoSchema.index({ usuario: 1, cursoId: 1 }, { unique: true });
 
 module.exports =

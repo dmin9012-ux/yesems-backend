@@ -1,3 +1,4 @@
+// routes/progresoRoutes.js
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
@@ -5,7 +6,7 @@ const auth = require("../middleware/auth");
 const {
     validarLeccion,
     obtenerProgresoCurso,
-    obtenerMisProgresos,
+    obtenerMisProgresos
 } = require("../controllers/progresoController");
 
 /* =========================================
@@ -13,14 +14,6 @@ const {
    POST /api/progreso/validar-leccion
 ========================================= */
 router.post("/validar-leccion", auth, validarLeccion);
-
-/* ❌ MÉTODOS NO PERMITIDOS */
-router.get("/validar-leccion", auth, (req, res) => {
-    return res.status(405).json({
-        ok: false,
-        message: "Método no permitido",
-    });
-});
 
 /* =========================================
    📌 OBTENER TODOS MIS PROGRESOS

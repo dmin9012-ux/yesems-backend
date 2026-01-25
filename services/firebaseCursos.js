@@ -1,4 +1,12 @@
-const { db } = require("../config/firebase");
+const { db } = require("./firebase");
+const crypto = require("crypto");
+
+/* =====================================================
+   🧩 GENERAR ID CANÓNICO DE LECCIÓN
+===================================================== */
+function generarLeccionId(cursoId, nivelNumero, leccionNumero) {
+    return cursoId + "-n" + nivelNumero + "-l" + leccionNumero;
+}
 
 /* =====================================================
    🔥 OBTENER TODAS LAS LECCIONES DE UN CURSO
@@ -15,15 +23,21 @@ async function obtenerLeccionesCurso(cursoId) {
 
         const lecciones = [];
 
-        data.niveles.forEach((nivel, i) => {
-            if (!nivel || !Array.isArray(nivel.lecciones)) return;
+        for (let i = 0; i < data.niveles.length; i++) {
+            const nivel = data.niveles[i];
+            const nivelNumero =
+                nivel.numero !== undefined && nivel.numero !== null ?
+                nivel.numero :
+                i + 1;
 
-            nivel.lecciones.forEach((leccion) => {
-                if (leccion && typeof leccion.id === "string") {
-                    lecciones.push(leccion.id);
-                }
-            });
-        });
+            if (!Array.isArray(nivel.lecciones)) continue;
+
+            for (let j = 0; j < nivel.lecciones.length; j++) {
+                lecciones.push(
+                    generarLeccionId(cursoId, nivelNumero, j + 1)
+                );
+            }
+        }
 
         return lecciones;
     } catch (error) {
@@ -45,25 +59,36 @@ async function obtenerLeccionesNivel(cursoId, nivelNumero) {
         const data = snap.data();
         if (!data || !Array.isArray(data.niveles)) return [];
 
-        for (let i = 0; i < data.niveles.length; i++) {
-            const nivel = data.niveles[i];
-            if (!nivel) continue;
+        let nivelEncontrado = null;
 
-            const numeroNivel =
-                nivel.numero !== undefined && nivel.numero !== null ?
-                Number(nivel.numero) :
+        for (let i = 0; i < data.niveles.length; i++) {
+            const n = data.niveles[i];
+            const num =
+                n.numero !== undefined && n.numero !== null ?
+                n.numero :
                 i + 1;
 
-            if (numeroNivel === nivelNumero) {
-                if (!Array.isArray(nivel.lecciones)) return [];
-
-                return nivel.lecciones
-                    .filter((l) => l && typeof l.id === "string")
-                    .map((l) => l.id);
+            if (Number(num) === Number(nivelNumero)) {
+                nivelEncontrado = n;
+                break;
             }
         }
 
-        return [];
+        if (!nivelEncontrado ||
+            !Array.isArray(nivelEncontrado.lecciones)
+        ) {
+            return [];
+        }
+
+        const lecciones = [];
+
+        for (let i = 0; i < nivelEncontrado.lecciones.length; i++) {
+            lecciones.push(
+                generarLeccionId(cursoId, nivelNumero, i + 1)
+            );
+        }
+
+        return lecciones;
     } catch (error) {
         console.error("❌ Firebase obtenerLeccionesNivel:", error);
         return [];
@@ -85,24 +110,105 @@ async function obtenerNivelDeLeccion(cursoId, leccionId) {
 
         for (let i = 0; i < data.niveles.length; i++) {
             const nivel = data.niveles[i];
-            if (!nivel || !Array.isArray(nivel.lecciones)) continue;
-
-            const numeroNivel =
+            const nivelNumero =
                 nivel.numero !== undefined && nivel.numero !== null ?
-                Number(nivel.numero) :
+                nivel.numero :
                 i + 1;
 
-            const encontrada = nivel.lecciones.some(
-                (l) => l && l.id === leccionId
-            );
+            if (!Array.isArray(nivel.lecciones)) continue;
 
-            if (encontrada) return numeroNivel;
+            for (let j = 0; j < nivel.lecciones.length; j++) {
+                const idCanonico = generarLeccionId(
+                    cursoId,
+                    nivelNumero,
+                    j + 1
+                );
+
+                if (idCanonico === leccionId) {
+                    return Number(nivelNumero);
+                }
+            }
         }
 
         return null;
     } catch (error) {
         console.error("❌ Firebase obtenerNivelDeLeccion:", error);
         return null;
+    }
+}
+
+/* =====================================================
+   🧠 OBTENER PREGUNTAS DE UN NIVEL
+===================================================== */
+async function obtenerPreguntasNivel(cursoId, nivelNumero, cantidad) {
+    try {
+        if (!cantidad) cantidad = 10;
+        if (!cursoId || typeof nivelNumero !== "number") return [];
+
+        const snapCurso = await db.collection("cursos").doc(cursoId).get();
+        if (!snapCurso.exists) return [];
+
+        const data = snapCurso.data();
+        if (!data || !Array.isArray(data.niveles)) return [];
+
+        let nivelEncontrado = null;
+
+        for (let i = 0; i < data.niveles.length; i++) {
+            const n = data.niveles[i];
+            const num =
+                n.numero !== undefined && n.numero !== null ?
+                n.numero :
+                i + 1;
+
+            if (Number(num) === Number(nivelNumero)) {
+                nivelEncontrado = n;
+                break;
+            }
+        }
+
+        if (!nivelEncontrado ||
+            !Array.isArray(nivelEncontrado.preguntas)
+        ) {
+            return [];
+        }
+
+        const preguntas = [];
+
+        for (let i = 0; i < nivelEncontrado.preguntas.length; i++) {
+            const p = nivelEncontrado.preguntas[i];
+
+            if (!p ||
+                typeof p.pregunta !== "string" ||
+                !Array.isArray(p.opciones)
+            ) {
+                continue;
+            }
+
+            preguntas.push({
+                id: p.id ||
+                    crypto
+                    .createHash("md5")
+                    .update(p.pregunta + i)
+                    .digest("hex"),
+                pregunta: p.pregunta,
+                opciones: p.opciones,
+                correcta: p.correcta !== undefined && p.correcta !== null ?
+                    p.correcta : 0,
+            });
+        }
+
+        preguntas.sort(function() {
+            return Math.random() - 0.5;
+        });
+
+        if (preguntas.length > cantidad) {
+            preguntas.splice(cantidad);
+        }
+
+        return preguntas;
+    } catch (error) {
+        console.error("❌ Error obtenerPreguntasNivel:", error);
+        return [];
     }
 }
 
@@ -119,22 +225,7 @@ async function obtenerTotalNivelesCurso(cursoId) {
         const data = snap.data();
         if (!data || !Array.isArray(data.niveles)) return 0;
 
-        let maxNivel = 0;
-
-        data.niveles.forEach((nivel, i) => {
-            if (!nivel) return;
-
-            const numeroNivel =
-                nivel.numero !== undefined && nivel.numero !== null ?
-                Number(nivel.numero) :
-                i + 1;
-
-            if (numeroNivel > maxNivel) {
-                maxNivel = numeroNivel;
-            }
-        });
-
-        return maxNivel;
+        return data.niveles.length;
     } catch (error) {
         console.error("❌ Firebase obtenerTotalNivelesCurso:", error);
         return 0;
@@ -142,7 +233,7 @@ async function obtenerTotalNivelesCurso(cursoId) {
 }
 
 /* =====================================================
-   📘 OBTENER CURSO POR ID (SIN PREGUNTAS)
+   📘 OBTENER CURSO POR ID
 ===================================================== */
 async function obtenerCursoPorId(cursoId) {
     try {
@@ -151,20 +242,7 @@ async function obtenerCursoPorId(cursoId) {
         const snap = await db.collection("cursos").doc(cursoId).get();
         if (!snap.exists) return null;
 
-        const data = snap.data();
-        if (!data) return null;
-
-        // Seguridad: no exponer preguntas aunque existan
-        if (Array.isArray(data.niveles)) {
-            data.niveles = data.niveles.map((nivel) => {
-                if (!nivel) return nivel;
-                const copia = {...nivel };
-                delete copia.preguntas;
-                return copia;
-            });
-        }
-
-        return data;
+        return snap.data();
     } catch (error) {
         console.error("❌ Firebase obtenerCursoPorId:", error);
         return null;
@@ -175,6 +253,7 @@ module.exports = {
     obtenerLeccionesCurso,
     obtenerLeccionesNivel,
     obtenerNivelDeLeccion,
+    obtenerPreguntasNivel,
     obtenerTotalNivelesCurso,
     obtenerCursoPorId,
 };

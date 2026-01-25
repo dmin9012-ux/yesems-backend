@@ -3,13 +3,11 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const examenController = require("../controllers/examenController");
 
-/* =====================================================
-   🔥 RUTAS DE EXAMEN
-===================================================== */
+console.log("🔥 ExamenRoutes cargado");
 
 /* =====================================================
    🔹 VERIFICAR SI EL USUARIO PUEDE ACCEDER A UN NIVEL
-   (SOLO PARA UI / FRONTEND)
+   GET /api/examen/:cursoId/nivel/:nivel/puede-acceder
 ===================================================== */
 router.get(
     "/:cursoId/nivel/:nivel/puede-acceder",
@@ -19,7 +17,7 @@ router.get(
 
 /* =====================================================
    📌 OBTENER EXAMEN DE UN NIVEL
-   TODAS LAS VALIDACIONES ESTÁN EN EL CONTROLLER
+   GET /api/examen/:cursoId/nivel/:nivel
 ===================================================== */
 router.get(
     "/:cursoId/nivel/:nivel",
@@ -28,26 +26,13 @@ router.get(
 );
 
 /* =====================================================
-   📝 ENVIAR EXAMEN DE UN NIVEL
+   🔹 ENVIAR / VALIDAR EXAMEN DE UN NIVEL
+   POST /api/examen/:cursoId/nivel/:nivel
 ===================================================== */
 router.post(
     "/:cursoId/nivel/:nivel",
     auth,
     examenController.enviarExamenNivel
-);
-
-/* =====================================================
-   ❌ BLOQUEAR MÉTODOS NO PERMITIDOS
-===================================================== */
-router.put(
-    "/:cursoId/nivel/:nivel",
-    auth,
-    (req, res) => {
-        return res.status(405).json({
-            ok: false,
-            message: "Método no permitido",
-        });
-    }
 );
 
 module.exports = router;
