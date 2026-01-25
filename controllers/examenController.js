@@ -32,18 +32,26 @@ exports.obtenerExamenNivel = async(req, res) => {
                 leccionesCompletadas: [],
                 nivelesAprobados: [],
                 intentosExamen: [],
+                completado: false,
             });
         }
 
-        if (progreso.nivelesAprobados.includes(nivelNumero)) {
+        // 🔑 NORMALIZAR niveles aprobados
+        const nivelesAprobados = progreso.nivelesAprobados.map(n => Number(n));
+
+        if (nivelesAprobados.includes(nivelNumero)) {
             return res.status(403).json({
                 ok: false,
                 message: "Este nivel ya fue aprobado",
             });
         }
 
+        // 🔁 Reusar intento pendiente si existe
         const intentoPendiente = progreso.intentosExamen.find(
-            (i) => i.nivel === nivelNumero && Array.isArray(i.respuestas) && i.respuestas.length === 0
+            (i) =>
+            Number(i.nivel) === nivelNumero &&
+            Array.isArray(i.respuestas) &&
+            i.respuestas.length === 0
         );
 
         if (intentoPendiente) {
@@ -74,7 +82,7 @@ exports.obtenerExamenNivel = async(req, res) => {
                 id: p.id,
                 pregunta: p.pregunta,
                 opciones: p.opciones,
-                correcta: p.correcta,
+                correcta: p.correcta, // 🔒 solo backend
             })),
             respuestas: [],
             aprobado: false,
@@ -122,9 +130,24 @@ exports.enviarExamenNivel = async(req, res) => {
             });
         }
 
+        // 🔑 NORMALIZAR niveles aprobados
+        const nivelesAprobados = progreso.nivelesAprobados.map(n => Number(n));
+
+        if (nivelesAprobados.includes(nivelNumero)) {
+            return res.status(403).json({
+                ok: false,
+                message: "Este nivel ya fue aprobado",
+            });
+        }
+
         const intento = [...progreso.intentosExamen]
             .reverse()
-            .find((i) => i.nivel === nivelNumero && Array.isArray(i.respuestas) && i.respuestas.length === 0);
+            .find(
+                (i) =>
+                Number(i.nivel) === nivelNumero &&
+                Array.isArray(i.respuestas) &&
+                i.respuestas.length === 0
+            );
 
         if (!intento) {
             return res.status(400).json({
@@ -143,7 +166,9 @@ exports.enviarExamenNivel = async(req, res) => {
             }
         }
 
-        const porcentaje = Math.round((correctas / intento.preguntas.length) * 100);
+        const porcentaje = Math.round(
+            (correctas / intento.preguntas.length) * 100
+        );
 
         const curso = await obtenerCursoPorId(cursoId);
         let minimoAprobacion = 80;
@@ -167,10 +192,24 @@ exports.enviarExamenNivel = async(req, res) => {
         intento.aprobado = aprobado;
         intento.porcentaje = porcentaje;
 
+        let cursoFinalizado = false;
+
         if (aprobado) {
             progreso.nivelesAprobados = Array.from(
-                new Set([...progreso.nivelesAprobados, nivelNumero])
+                new Set([...nivelesAprobados, nivelNumero])
             ).sort((a, b) => a - b);
+
+            const totalNiveles = await obtenerTotalNivelesCurso(cursoId);
+            const totalLecciones = await obtenerLeccionesCurso(cursoId);
+
+            if (
+                progreso.nivelesAprobados.length === totalNiveles &&
+                progreso.leccionesCompletadas.length === totalLecciones.length
+            ) {
+                progreso.completado = true;
+                progreso.fechaFinalizacion = new Date();
+                cursoFinalizado = true;
+            }
         }
 
         await progreso.save();
@@ -180,7 +219,7 @@ exports.enviarExamenNivel = async(req, res) => {
             aprobado,
             porcentaje,
             minimoAprobacion,
-            cursoFinalizado: progreso.completado === true,
+            cursoFinalizado,
         });
     } catch (error) {
         console.error("❌ Error enviarExamenNivel:", error);
@@ -206,7 +245,17 @@ exports.puedeAccederNivel = async(req, res) => {
 
         const progreso = await ProgresoCurso.findOne({ usuario: usuarioId, cursoId });
 
-        if (!progreso || !progreso.nivelesAprobados.includes(nivelNumero - 1)) {
+        if (!progreso) {
+            return res.json({
+                ok: true,
+                puedeAcceder: false,
+                reason: "Debes aprobar el nivel " + (nivelNumero - 1),
+            });
+        }
+
+        const nivelesAprobados = progreso.nivelesAprobados.map(n => Number(n));
+
+        if (!nivelesAprobados.includes(nivelNumero - 1)) {
             return res.json({
                 ok: true,
                 puedeAcceder: false,
