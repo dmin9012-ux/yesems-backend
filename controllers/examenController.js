@@ -2,8 +2,6 @@ const ProgresoCurso = require("../models/ProgresoCurso");
 const {
     obtenerPreguntasNivel,
     obtenerTotalNivelesCurso,
-    obtenerLeccionesNivel,
-    obtenerLeccionesCurso,
     obtenerCursoPorId,
 } = require("../services/firebaseCursos");
 
@@ -24,64 +22,63 @@ exports.obtenerExamenNivel = async(req, res) => {
         }
 
         let progreso = await ProgresoCurso.findOne({ usuario: usuarioId, cursoId });
-
         if (!progreso) {
-            progreso = await ProgresoCurso.create({
-                usuario: usuarioId,
-                cursoId,
-                leccionesCompletadas: [],
-                nivelesAprobados: [],
-                intentosExamen: [],
-                completado: false,
+            progreso = new ProgresoCurso({ usuario: usuarioId, cursoId });
+            await progreso.save();
+        }
+
+        // 🔒 Nivel bloqueado
+        if (!progreso.nivelesDesbloqueados.includes(nivelNumero)) {
+            return res.status(403).json({
+                ok: false,
+                message: "Este nivel aún no está desbloqueado",
             });
         }
 
-        const nivelesAprobados = progreso.nivelesAprobados.map(n => Number(n));
-
-        if (nivelesAprobados.includes(nivelNumero)) {
+        // ❌ Nivel ya aprobado
+        if (progreso.nivelesAprobados.includes(nivelNumero)) {
             return res.status(403).json({
                 ok: false,
                 message: "Este nivel ya fue aprobado",
             });
         }
 
-        /* 🔒 VALIDAR QUE TODAS LAS LECCIONES DEL NIVEL ESTÉN COMPLETADAS */
-        const leccionesNivel = await obtenerLeccionesNivel(cursoId, nivelNumero);
-
-        const leccionesCompletadasNivel = progreso.leccionesCompletadas.filter(
-            l => leccionesNivel.includes(l)
-        );
-
-        if (leccionesNivel.length === 0 || leccionesCompletadasNivel.length < leccionesNivel.length) {
+        // 🔒 Todas las lecciones completadas
+        if (!progreso.nivelesConLeccionesCompletas.includes(nivelNumero)) {
             return res.status(403).json({
                 ok: false,
                 message: "Debes completar todas las lecciones antes de presentar el examen",
             });
         }
 
-        /* 🔁 REUSAR INTENTO PENDIENTE */
-        const intentoPendiente = progreso.intentosExamen.find(
-            i =>
-            Number(i.nivel) === nivelNumero &&
-            Array.isArray(i.respuestas) &&
-            i.respuestas.length === 0
-        );
+        // 🔁 Intento pendiente
+        const intentosReverso = progreso.intentosExamen.slice().reverse();
+        let intentoPendiente = null;
+        for (let i = 0; i < intentosReverso.length; i++) {
+            const intento = intentosReverso[i];
+            if (intento.nivel === nivelNumero && Array.isArray(intento.respuestas) && intento.respuestas.length === 0) {
+                intentoPendiente = intento;
+                break;
+            }
+        }
 
         if (intentoPendiente) {
             return res.json({
                 ok: true,
                 cursoId,
                 nivel: nivelNumero,
-                preguntas: intentoPendiente.preguntas.map(p => ({
-                    id: p.id,
-                    pregunta: p.pregunta,
-                    opciones: p.opciones,
-                })),
+                preguntas: intentoPendiente.preguntas.map(function(p) {
+                    return {
+                        id: p.id,
+                        pregunta: p.pregunta,
+                        opciones: p.opciones,
+                    };
+                }),
             });
         }
 
+        // 🔍 Obtener preguntas
         const preguntasBase = await obtenerPreguntasNivel(cursoId, nivelNumero, 10);
-
         if (!Array.isArray(preguntasBase) || preguntasBase.length === 0) {
             return res.status(404).json({
                 ok: false,
@@ -91,12 +88,14 @@ exports.obtenerExamenNivel = async(req, res) => {
 
         const intento = {
             nivel: nivelNumero,
-            preguntas: preguntasBase.map(p => ({
-                id: p.id,
-                pregunta: p.pregunta,
-                opciones: p.opciones,
-                correcta: p.correcta,
-            })),
+            preguntas: preguntasBase.map(function(p) {
+                return {
+                    id: p.id,
+                    pregunta: p.pregunta,
+                    opciones: p.opciones,
+                    correcta: p.correcta,
+                };
+            }),
             respuestas: [],
             aprobado: false,
             porcentaje: 0,
@@ -110,11 +109,13 @@ exports.obtenerExamenNivel = async(req, res) => {
             ok: true,
             cursoId,
             nivel: nivelNumero,
-            preguntas: intento.preguntas.map(p => ({
-                id: p.id,
-                pregunta: p.pregunta,
-                opciones: p.opciones,
-            })),
+            preguntas: intento.preguntas.map(function(p) {
+                return {
+                    id: p.id,
+                    pregunta: p.pregunta,
+                    opciones: p.opciones,
+                };
+            }),
         });
     } catch (error) {
         console.error("❌ Error obtenerExamenNivel:", error);
@@ -133,7 +134,7 @@ exports.enviarExamenNivel = async(req, res) => {
         const usuarioId = req.usuario.id;
         const cursoId = req.params.cursoId;
         const nivelNumero = Number(req.params.nivel);
-        const respuestas = req.body.respuestas;
+        const respuestas = Array.isArray(req.body.respuestas) ? req.body.respuestas : [];
 
         const progreso = await ProgresoCurso.findOne({ usuario: usuarioId, cursoId });
         if (!progreso) {
@@ -143,23 +144,22 @@ exports.enviarExamenNivel = async(req, res) => {
             });
         }
 
-        const nivelesAprobados = progreso.nivelesAprobados.map(n => Number(n));
-
-        if (nivelesAprobados.includes(nivelNumero)) {
+        if (progreso.nivelesAprobados.indexOf(nivelNumero) !== -1) {
             return res.status(403).json({
                 ok: false,
                 message: "Este nivel ya fue aprobado",
             });
         }
 
-        const intento = [...progreso.intentosExamen]
-            .reverse()
-            .find(
-                i =>
-                Number(i.nivel) === nivelNumero &&
-                Array.isArray(i.respuestas) &&
-                i.respuestas.length === 0
-            );
+        // Buscar último intento pendiente
+        const intentosReverso = progreso.intentosExamen.slice().reverse();
+        let intento = null;
+        for (let i = 0; i < intentosReverso.length; i++) {
+            if (intentosReverso[i].nivel === nivelNumero && Array.isArray(intentosReverso[i].respuestas) && intentosReverso[i].respuestas.length === 0) {
+                intento = intentosReverso[i];
+                break;
+            }
+        }
 
         if (!intento) {
             return res.status(400).json({
@@ -168,30 +168,27 @@ exports.enviarExamenNivel = async(req, res) => {
             });
         }
 
+        // ✅ Calcular respuestas correctas
         let correctas = 0;
-
         for (let i = 0; i < respuestas.length; i++) {
             const r = respuestas[i];
-            const p = intento.preguntas.find(q => q.id === r.preguntaId);
+            const p = intento.preguntas.find(function(q) { return q.id === r.preguntaId; });
             if (p && p.correcta === r.respuesta) {
                 correctas++;
             }
         }
 
-        const porcentaje = Math.round(
-            (correctas / intento.preguntas.length) * 100
-        );
+        const porcentaje = Math.round((correctas / intento.preguntas.length) * 100);
 
-        const curso = await obtenerCursoPorId(cursoId);
+        // 🔍 Obtener mínimo de aprobación
         let minimoAprobacion = 80;
-
+        const curso = await obtenerCursoPorId(cursoId);
         if (curso && Array.isArray(curso.niveles)) {
             for (let i = 0; i < curso.niveles.length; i++) {
                 const n = curso.niveles[i];
-                if (Number(n.numero) === nivelNumero &&
-                    n.examen &&
-                    typeof n.examen.minimoAprobacion === "number") {
+                if (n.numero === nivelNumero && n.examen && typeof n.examen.minimoAprobacion === "number") {
                     minimoAprobacion = n.examen.minimoAprobacion;
+                    break;
                 }
             }
         }
@@ -202,20 +199,14 @@ exports.enviarExamenNivel = async(req, res) => {
         intento.aprobado = aprobado;
         intento.porcentaje = porcentaje;
 
-        if (aprobado) {
-            progreso.nivelesAprobados = Array.from(
-                new Set([...nivelesAprobados, nivelNumero])
-            ).sort((a, b) => a - b);
+        if (aprobado && progreso.nivelesAprobados.indexOf(nivelNumero) === -1) {
+            progreso.nivelesAprobados.push(nivelNumero);
 
             const totalNiveles = await obtenerTotalNivelesCurso(cursoId);
-            const totalLecciones = await obtenerLeccionesCurso(cursoId);
+            const siguienteNivel = nivelNumero + 1;
 
-            if (
-                progreso.nivelesAprobados.length === totalNiveles &&
-                progreso.leccionesCompletadas.length === totalLecciones.length
-            ) {
-                progreso.completado = true;
-                progreso.fechaFinalizacion = new Date();
+            if (siguienteNivel <= totalNiveles && progreso.nivelesDesbloqueados.indexOf(siguienteNivel) === -1) {
+                progreso.nivelesDesbloqueados.push(siguienteNivel);
             }
         }
 
@@ -223,9 +214,9 @@ exports.enviarExamenNivel = async(req, res) => {
 
         return res.json({
             ok: true,
-            aprobado,
-            porcentaje,
-            minimoAprobacion,
+            aprobado: aprobado,
+            porcentaje: porcentaje,
+            minimoAprobacion: minimoAprobacion,
         });
     } catch (error) {
         console.error("❌ Error enviarExamenNivel:", error);
@@ -245,31 +236,19 @@ exports.puedeAccederNivel = async(req, res) => {
         const cursoId = req.params.cursoId;
         const nivelNumero = Number(req.params.nivel);
 
-        if (nivelNumero === 1) {
-            return res.json({ ok: true, puedeAcceder: true });
-        }
-
         const progreso = await ProgresoCurso.findOne({ usuario: usuarioId, cursoId });
 
+        let puede = false;
         if (!progreso) {
-            return res.json({
-                ok: true,
-                puedeAcceder: false,
-                reason: "Debes aprobar el nivel " + (nivelNumero - 1),
-            });
+            puede = nivelNumero === 1;
+        } else {
+            puede = progreso.nivelesDesbloqueados.indexOf(nivelNumero) !== -1;
         }
 
-        const nivelesAprobados = progreso.nivelesAprobados.map(n => Number(n));
-
-        if (!nivelesAprobados.includes(nivelNumero - 1)) {
-            return res.json({
-                ok: true,
-                puedeAcceder: false,
-                reason: "Debes aprobar el nivel " + (nivelNumero - 1),
-            });
-        }
-
-        return res.json({ ok: true, puedeAcceder: true });
+        return res.json({
+            ok: true,
+            puedeAcceder: puede,
+        });
     } catch (error) {
         console.error("❌ Error puedeAccederNivel:", error);
         return res.status(500).json({

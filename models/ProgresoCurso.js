@@ -24,8 +24,8 @@ const ProgresoCursoSchema = new mongoose.Schema({
     },
 
     /* =====================================
-       📂 NIVELES CON LECCIONES COMPLETAS
-       → Permite saber si ya puede presentar examen
+       📂 NIVELES CON TODAS LAS LECCIONES
+       → Habilita presentación de examen
        Ej: [1,2]
     ===================================== */
     nivelesConLeccionesCompletas: {
@@ -44,12 +44,12 @@ const ProgresoCursoSchema = new mongoose.Schema({
 
     /* =====================================
        🔓 NIVELES DESBLOQUEADOS
-       → El frontend debe guiarse por esto
+       → ÚNICA FUENTE DE VERDAD PARA ACCESO
        Ej: [1,2,3]
     ===================================== */
     nivelesDesbloqueados: {
         type: [Number],
-        default: [1], // 🔥 Nivel 1 siempre disponible
+        default: [1], // Nivel 1 siempre disponible
     },
 
     /* =====================================
@@ -87,6 +87,12 @@ const ProgresoCursoSchema = new mongoose.Schema({
         porcentaje: {
             type: Number,
             default: 0,
+        },
+
+        /* 🔒 EVITA REUSO INCORRECTO DEL EXAMEN */
+        finalizado: {
+            type: Boolean,
+            default: false,
         },
 
         fecha: {

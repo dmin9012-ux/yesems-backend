@@ -15,18 +15,14 @@ async function obtenerLeccionesCurso(cursoId) {
         if (!data || !Array.isArray(data.niveles)) return [];
 
         const lecciones = [];
-
-        for (let i = 0; i < data.niveles.length; i++) {
-            const nivel = data.niveles[i];
-            if (!nivel || !Array.isArray(nivel.lecciones)) continue;
-
-            for (let j = 0; j < nivel.lecciones.length; j++) {
-                const leccion = nivel.lecciones[j];
-                if (leccion && leccion.id) {
+        data.niveles.forEach((nivel) => {
+            if (!nivel || !Array.isArray(nivel.lecciones)) return;
+            nivel.lecciones.forEach((leccion) => {
+                if (leccion && typeof leccion.id === "string") {
                     lecciones.push(leccion.id);
                 }
-            }
-        }
+            });
+        });
 
         return lecciones;
     } catch (error) {
@@ -40,9 +36,7 @@ async function obtenerLeccionesCurso(cursoId) {
 ===================================================== */
 async function obtenerLeccionesNivel(cursoId, nivelNumero) {
     try {
-        if (!cursoId || nivelNumero === undefined || nivelNumero === null) {
-            return [];
-        }
+        if (!cursoId || typeof nivelNumero !== "number") return [];
 
         const snap = await db.collection("cursos").doc(cursoId).get();
         if (!snap.exists) return [];
@@ -50,34 +44,24 @@ async function obtenerLeccionesNivel(cursoId, nivelNumero) {
         const data = snap.data();
         if (!data || !Array.isArray(data.niveles)) return [];
 
-        let nivelEncontrado = null;
-
         for (let i = 0; i < data.niveles.length; i++) {
             const nivel = data.niveles[i];
-            const num = (nivel.numero !== undefined && nivel.numero !== null) ?
-                nivel.numero :
+            if (!nivel) continue;
+
+            const numeroNivel =
+                nivel.numero !== undefined && nivel.numero !== null ?
+                Number(nivel.numero) :
                 i + 1;
 
-            if (Number(num) === Number(nivelNumero)) {
-                nivelEncontrado = nivel;
-                break;
+            if (numeroNivel === nivelNumero) {
+                if (!Array.isArray(nivel.lecciones)) return [];
+                return nivel.lecciones
+                    .filter((l) => l && typeof l.id === "string")
+                    .map((l) => l.id);
             }
         }
 
-        if (!nivelEncontrado || !Array.isArray(nivelEncontrado.lecciones)) {
-            return [];
-        }
-
-        const lecciones = [];
-
-        for (let i = 0; i < nivelEncontrado.lecciones.length; i++) {
-            const leccion = nivelEncontrado.lecciones[i];
-            if (leccion && leccion.id) {
-                lecciones.push(leccion.id);
-            }
-        }
-
-        return lecciones;
+        return [];
     } catch (error) {
         console.error("❌ Firebase obtenerLeccionesNivel:", error);
         return [];
@@ -101,15 +85,13 @@ async function obtenerNivelDeLeccion(cursoId, leccionId) {
             const nivel = data.niveles[i];
             if (!nivel || !Array.isArray(nivel.lecciones)) continue;
 
-            const nivelNumero = (nivel.numero !== undefined && nivel.numero !== null) ?
-                nivel.numero :
+            const numeroNivel =
+                nivel.numero !== undefined && nivel.numero !== null ?
+                Number(nivel.numero) :
                 i + 1;
 
-            for (let j = 0; j < nivel.lecciones.length; j++) {
-                const leccion = nivel.lecciones[j];
-                if (leccion && leccion.id === leccionId) {
-                    return Number(nivelNumero);
-                }
+            if (nivel.lecciones.some((l) => l && l.id === leccionId)) {
+                return numeroNivel;
             }
         }
 
@@ -123,12 +105,9 @@ async function obtenerNivelDeLeccion(cursoId, leccionId) {
 /* =====================================================
    🧠 OBTENER PREGUNTAS DE UN NIVEL
 ===================================================== */
-async function obtenerPreguntasNivel(cursoId, nivelNumero, cantidad) {
+async function obtenerPreguntasNivel(cursoId, nivelNumero, cantidad = 10) {
     try {
-        if (!cantidad) cantidad = 10;
-        if (!cursoId || nivelNumero === undefined || nivelNumero === null) {
-            return [];
-        }
+        if (!cursoId || typeof nivelNumero !== "number") return [];
 
         const snap = await db.collection("cursos").doc(cursoId).get();
         if (!snap.exists) return [];
@@ -136,59 +115,37 @@ async function obtenerPreguntasNivel(cursoId, nivelNumero, cantidad) {
         const data = snap.data();
         if (!data || !Array.isArray(data.niveles)) return [];
 
-        let nivelEncontrado = null;
-
-        for (let i = 0; i < data.niveles.length; i++) {
-            const nivel = data.niveles[i];
-            const num = (nivel.numero !== undefined && nivel.numero !== null) ?
-                nivel.numero :
+        const nivelEncontrado = data.niveles.find((nivel, i) => {
+            const numeroNivel =
+                nivel.numero !== undefined && nivel.numero !== null ?
+                Number(nivel.numero) :
                 i + 1;
-
-            if (Number(num) === Number(nivelNumero)) {
-                nivelEncontrado = nivel;
-                break;
-            }
-        }
-
-        if (!nivelEncontrado || !Array.isArray(nivelEncontrado.preguntas)) {
-            return [];
-        }
-
-        const preguntas = [];
-
-        for (let i = 0; i < nivelEncontrado.preguntas.length; i++) {
-            const p = nivelEncontrado.preguntas[i];
-            if (!p ||
-                typeof p.pregunta !== "string" ||
-                !Array.isArray(p.opciones)
-            ) {
-                continue;
-            }
-
-            preguntas.push({
-                id: p.id ?
-                    p.id :
-                    crypto
-                    .createHash("md5")
-                    .update(p.pregunta + i)
-                    .digest("hex"),
-                pregunta: p.pregunta,
-                opciones: p.opciones,
-                correcta: p.correcta !== undefined && p.correcta !== null ?
-                    p.correcta :
-                    0
-            });
-        }
-
-        preguntas.sort(function() {
-            return Math.random() - 0.5;
+            return numeroNivel === nivelNumero;
         });
 
-        if (preguntas.length > cantidad) {
-            preguntas.splice(cantidad);
-        }
+        if (!nivelEncontrado || !Array.isArray(nivelEncontrado.preguntas)) return [];
 
-        return preguntas;
+        const preguntas = nivelEncontrado.preguntas
+            .filter(
+                (p) =>
+                p &&
+                typeof p.pregunta === "string" &&
+                Array.isArray(p.opciones) &&
+                typeof p.correcta === "number"
+            )
+            .map((p, i) => ({
+                id: typeof p.id === "string" ?
+                    p.id :
+                    crypto.createHash("md5").update(p.pregunta + i).digest("hex"),
+                pregunta: p.pregunta,
+                opciones: p.opciones,
+                correcta: p.correcta,
+            }));
+
+        // Mezclar preguntas
+        preguntas.sort(() => Math.random() - 0.5);
+
+        return preguntas.slice(0, cantidad);
     } catch (error) {
         console.error("❌ Error obtenerPreguntasNivel:", error);
         return [];
@@ -208,7 +165,13 @@ async function obtenerTotalNivelesCurso(cursoId) {
         const data = snap.data();
         if (!data || !Array.isArray(data.niveles)) return 0;
 
-        return data.niveles.length;
+        return data.niveles.reduce((max, nivel, i) => {
+            const numeroNivel =
+                nivel && nivel.numero !== undefined && nivel.numero !== null ?
+                Number(nivel.numero) :
+                i + 1;
+            return numeroNivel > max ? numeroNivel : max;
+        }, 0);
     } catch (error) {
         console.error("❌ Firebase obtenerTotalNivelesCurso:", error);
         return 0;
@@ -238,5 +201,5 @@ module.exports = {
     obtenerNivelDeLeccion,
     obtenerPreguntasNivel,
     obtenerTotalNivelesCurso,
-    obtenerCursoPorId
+    obtenerCursoPorId,
 };
