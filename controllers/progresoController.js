@@ -1,14 +1,14 @@
 const ProgresoCurso = require("../models/ProgresoCurso");
 const Usuario = require("../models/Usuario");
+
 const {
     obtenerLeccionesCurso,
-    obtenerNivelDeLeccion,
     obtenerLeccionesNivel,
-    obtenerTotalNivelesCurso,
+    obtenerNivelDeLeccion,
 } = require("../services/firebaseCursos");
 
 /* =========================================
-   🔥 VALIDAR LECCIÓN
+   VALIDAR LECCION
 ========================================= */
 exports.validarLeccion = async(req, res) => {
     try {
@@ -23,7 +23,8 @@ exports.validarLeccion = async(req, res) => {
         }
 
         const leccionesCurso = await obtenerLeccionesCurso(cursoId);
-        if (!leccionesCurso.length) {
+
+        if (!Array.isArray(leccionesCurso) || leccionesCurso.length === 0) {
             return res.status(404).json({
                 ok: false,
                 message: "Curso no encontrado o sin lecciones",
@@ -33,26 +34,43 @@ exports.validarLeccion = async(req, res) => {
         if (!leccionesCurso.includes(leccionId)) {
             return res.status(400).json({
                 ok: false,
-                message: "La lección no pertenece a este curso",
+                message: "La leccion no pertenece a este curso",
             });
         }
 
         const nivelLeccion = await obtenerNivelDeLeccion(cursoId, leccionId);
+
         if (typeof nivelLeccion !== "number") {
             return res.status(400).json({
                 ok: false,
-                message: "No se pudo determinar el nivel de la lección",
+                message: "No se pudo determinar el nivel de la leccion",
             });
         }
 
-        let progreso = await ProgresoCurso.findOne({ usuario: usuarioId, cursoId });
+        let progreso = await ProgresoCurso.findOne({
+            usuario: usuarioId,
+            cursoId,
+        });
+
         if (!progreso) {
-            progreso = new ProgresoCurso({ usuario: usuarioId, cursoId });
+            progreso = new ProgresoCurso({
+                usuario: usuarioId,
+                cursoId,
+                leccionesCompletadas: [],
+                nivelesConLeccionesCompletas: [],
+                nivelesAprobados: [],
+                nivelesDesbloqueados: [1],
+                intentosExamen: [],
+                completado: false,
+            });
         }
 
-        // 🔒 Verificar desbloqueo del nivel
+        /* =====================================
+           CONTROL DE AVANCE POR NIVELES
+        ===================================== */
         if (nivelLeccion > 1) {
             const nivelAnterior = nivelLeccion - 1;
+
             if (!progreso.nivelesAprobados.includes(nivelAnterior)) {
                 return res.status(403).json({
                     ok: false,
@@ -61,7 +79,9 @@ exports.validarLeccion = async(req, res) => {
             }
         }
 
-        // 🔁 Ya validada
+        /* =====================================
+           LECCION YA VALIDADA
+        ===================================== */
         if (progreso.leccionesCompletadas.includes(leccionId)) {
             return res.json({
                 ok: true,
@@ -72,39 +92,53 @@ exports.validarLeccion = async(req, res) => {
 
         progreso.leccionesCompletadas.push(leccionId);
 
-        // 📘 Validar si el nivel ya está completo
-        const leccionesNivel = await obtenerLeccionesNivel(cursoId, nivelLeccion);
-        const nivelCompleto = leccionesNivel.every((l) =>
-            progreso.leccionesCompletadas.includes(l)
+        /* =====================================
+           VERIFICAR SI EL NIVEL ESTA COMPLETO
+        ===================================== */
+        const leccionesNivel = await obtenerLeccionesNivel(
+            cursoId,
+            nivelLeccion
         );
 
-        if (nivelCompleto && !progreso.nivelesConLeccionesCompletas.includes(nivelLeccion)) {
+        const nivelCompleto =
+            Array.isArray(leccionesNivel) &&
+            leccionesNivel.length > 0 &&
+            leccionesNivel.every((l) =>
+                progreso.leccionesCompletadas.includes(l)
+            );
+
+        if (
+            nivelCompleto &&
+            !progreso.nivelesConLeccionesCompletas.includes(nivelLeccion)
+        ) {
             progreso.nivelesConLeccionesCompletas.push(nivelLeccion);
         }
 
         await progreso.save();
 
-        // Actualizar usuario con lecciones validadas
+        /* =====================================
+           GUARDAR EN USUARIO
+        ===================================== */
         await Usuario.findByIdAndUpdate(
-            usuarioId, { $addToSet: { leccionesValidadas: leccionId } }, { new: true }
+            usuarioId, { $addToSet: { leccionesValidadas: leccionId } }
         );
 
         return res.json({
             ok: true,
-            message: "Lección validada correctamente",
+            message: "Leccion validada correctamente",
             progreso,
         });
     } catch (error) {
-        console.error("❌ Error validarLeccion:", error);
+        console.error("Error validarLeccion:", error);
         return res.status(500).json({
             ok: false,
-            message: "Error al validar lección",
+            message: "Error al validar leccion",
         });
     }
 };
 
 /* =========================================
-   📌 OBTENER PROGRESO DE UN CURSO
+   OBTENER PROGRESO DE UN CURSO
 ========================================= */
 exports.obtenerProgresoCurso = async(req, res) => {
     try {
@@ -112,49 +146,32 @@ exports.obtenerProgresoCurso = async(req, res) => {
         const { cursoId } = req.params;
 
         if (!cursoId) {
-            return res.status(400).json({ ok: false, message: "cursoId es obligatorio" });
+            return res.status(400).json({
+                ok: false,
+                message: "cursoId es obligatorio",
+            });
         }
 
-        let progreso = await ProgresoCurso.findOne({ usuario: usuarioId, cursoId });
+        let progreso = await ProgresoCurso.findOne({
+            usuario: usuarioId,
+            cursoId,
+        });
+
         if (!progreso) {
-            progreso = new ProgresoCurso({ usuario: usuarioId, cursoId });
-            await progreso.save();
-        }
-
-        const leccionesCurso = await obtenerLeccionesCurso(cursoId);
-        const totalNiveles = await obtenerTotalNivelesCurso(cursoId);
-
-        const progresoCurso = leccionesCurso.length ?
-            Math.round((progreso.leccionesCompletadas.length / leccionesCurso.length) * 100) :
-            0;
-
-        // 🏁 Marcar curso completado
-        if (
-            leccionesCurso.length &&
-            progreso.leccionesCompletadas.length === leccionesCurso.length &&
-            progreso.nivelesAprobados.length === totalNiveles &&
-            !progreso.completado
-        ) {
-            progreso.completado = true;
-            progreso.fechaFinalizacion = new Date();
+            progreso = new ProgresoCurso({
+                usuario: usuarioId,
+                cursoId,
+                nivelesDesbloqueados: [1],
+            });
             await progreso.save();
         }
 
         return res.json({
             ok: true,
             progreso,
-            estadisticas: {
-                progresoCurso,
-                totalLecciones: leccionesCurso.length,
-                leccionesCompletadas: progreso.leccionesCompletadas.length,
-                nivelesConLeccionesCompletas: progreso.nivelesConLeccionesCompletas,
-                nivelesAprobados: progreso.nivelesAprobados,
-                nivelesDesbloqueados: progreso.nivelesDesbloqueados,
-                totalNiveles,
-            },
         });
     } catch (error) {
-        console.error("❌ Error obtenerProgresoCurso:", error);
+        console.error("Error obtenerProgresoCurso:", error);
         return res.status(500).json({
             ok: false,
             message: "Error al obtener progreso del curso",
@@ -163,15 +180,22 @@ exports.obtenerProgresoCurso = async(req, res) => {
 };
 
 /* =========================================
-   📌 OBTENER TODOS MIS PROGRESOS
+   OBTENER TODOS MIS PROGRESOS
 ========================================= */
 exports.obtenerMisProgresos = async(req, res) => {
     try {
         const usuarioId = req.usuario.id;
-        const progresos = await ProgresoCurso.find({ usuario: usuarioId });
-        return res.json({ ok: true, progresos });
+
+        const progresos = await ProgresoCurso.find({
+            usuario: usuarioId,
+        });
+
+        return res.json({
+            ok: true,
+            progresos,
+        });
     } catch (error) {
-        console.error("❌ Error obtenerMisProgresos:", error);
+        console.error("Error obtenerMisProgresos:", error);
         return res.status(500).json({
             ok: false,
             message: "Error al obtener progresos",

@@ -9,8 +9,7 @@ const examenController = require("../controllers/examenController");
 
 /* =====================================================
    🔹 VERIFICAR SI EL USUARIO PUEDE ACCEDER A UN NIVEL
-   GET /api/examen/:cursoId/nivel/:nivel/puede-acceder
-   ⚠️ DEBE IR ANTES QUE /:cursoId/nivel/:nivel
+   (SOLO PARA UI / FRONTEND)
 ===================================================== */
 router.get(
     "/:cursoId/nivel/:nivel/puede-acceder",
@@ -20,7 +19,7 @@ router.get(
 
 /* =====================================================
    📌 OBTENER EXAMEN DE UN NIVEL
-   GET /api/examen/:cursoId/nivel/:nivel
+   TODAS LAS VALIDACIONES ESTÁN EN EL CONTROLLER
 ===================================================== */
 router.get(
     "/:cursoId/nivel/:nivel",
@@ -28,7 +27,18 @@ router.get(
     examenController.obtenerExamenNivel
 );
 
-/* ❌ MÉTODO NO PERMITIDO (EVITA RE-ABRIR EXAMEN) */
+/* =====================================================
+   📝 ENVIAR EXAMEN DE UN NIVEL
+===================================================== */
+router.post(
+    "/:cursoId/nivel/:nivel",
+    auth,
+    examenController.enviarExamenNivel
+);
+
+/* =====================================================
+   ❌ BLOQUEAR MÉTODOS NO PERMITIDOS
+===================================================== */
 router.put(
     "/:cursoId/nivel/:nivel",
     auth,
@@ -38,16 +48,6 @@ router.put(
             message: "Método no permitido",
         });
     }
-);
-
-/* =====================================================
-   📝 ENVIAR / VALIDAR EXAMEN DE UN NIVEL
-   POST /api/examen/:cursoId/nivel/:nivel
-===================================================== */
-router.post(
-    "/:cursoId/nivel/:nivel",
-    auth,
-    examenController.enviarExamenNivel
 );
 
 module.exports = router;
