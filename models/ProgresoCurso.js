@@ -16,14 +16,17 @@ const ProgresoCursoSchema = new mongoose.Schema({
 
     /* =====================================
        📘 LECCIONES COMPLETADAS
+       → IDs reales de Firebase
     ===================================== */
     leccionesCompletadas: {
-        type: [String], // IDs reales Firebase
+        type: [String],
         default: [],
     },
 
     /* =====================================
        ✅ NIVELES APROBADOS
+       → Ejemplo: [1,2] significa que
+         el nivel 3 está desbloqueado
     ===================================== */
     nivelesAprobados: {
         type: [Number],
@@ -31,19 +34,21 @@ const ProgresoCursoSchema = new mongoose.Schema({
     },
 
     /* =====================================
-       📝 INTENTOS DE EXAMEN
+       📝 HISTORIAL DE EXÁMENES
     ===================================== */
     intentosExamen: [{
         nivel: {
             type: Number,
             required: true,
         },
+
         preguntas: [{
             id: { type: String, required: true },
             pregunta: { type: String, required: true },
             opciones: { type: [String], required: true },
             correcta: { type: Number, required: true },
-        }],
+        }, ],
+
         respuestas: [{
             preguntaId: {
                 type: String,
@@ -53,25 +58,26 @@ const ProgresoCursoSchema = new mongoose.Schema({
                 type: Number,
                 required: true,
             },
-        }],
+        }, ],
+
         aprobado: {
             type: Boolean,
-            required: true,
             default: false,
         },
+
         porcentaje: {
             type: Number,
-            required: true,
             default: 0,
         },
+
         fecha: {
             type: Date,
             default: Date.now,
         },
-    }],
+    }, ],
 
     /* =====================================
-       🏁 FINALIZACIÓN DEL CURSO
+       🏁 CURSO FINALIZADO
     ===================================== */
     completado: {
         type: Boolean,
@@ -102,7 +108,7 @@ const ProgresoCursoSchema = new mongoose.Schema({
 });
 
 /* =====================================
-   🔒 EVITAR DUPLICADOS
+   🔒 UN SOLO PROGRESO POR CURSO
 ===================================== */
 ProgresoCursoSchema.index({ usuario: 1, cursoId: 1 }, { unique: true });
 

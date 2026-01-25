@@ -1,9 +1,10 @@
-// controllers/progresoController.js
 const ProgresoCurso = require("../models/ProgresoCurso");
 const Usuario = require("../models/Usuario");
 const {
     obtenerLeccionesCurso,
     obtenerNivelDeLeccion,
+    obtenerLeccionesNivel,
+    obtenerTotalNivelesCurso,
 } = require("../services/firebaseCursos");
 
 /* =========================================
@@ -46,7 +47,10 @@ exports.validarLeccion = async(req, res) => {
             });
         }
 
-        let progreso = await ProgresoCurso.findOne({ usuario: usuarioId, cursoId });
+        let progreso = await ProgresoCurso.findOne({
+            usuario: usuarioId,
+            cursoId,
+        });
 
         if (!progreso) {
             progreso = new ProgresoCurso({
@@ -65,12 +69,12 @@ exports.validarLeccion = async(req, res) => {
             if (!progreso.nivelesAprobados.includes(nivelAnterior)) {
                 return res.status(403).json({
                     ok: false,
-                    message: `Debes aprobar el examen del nivel ${nivelAnterior}`,
+                    message: "Debes aprobar el examen del nivel " + nivelAnterior,
                 });
             }
         }
 
-        // 🔁 Ya validada → OK silencioso
+        // 🔁 Ya validada
         if (progreso.leccionesCompletadas.includes(leccionId)) {
             return res.json({
                 ok: true,
@@ -101,7 +105,7 @@ exports.validarLeccion = async(req, res) => {
 };
 
 /* =========================================
-   📌 OBTENER PROGRESO DE UN CURSO
+   📌 OBTENER PROGRESO DE UN CURSO (REAL)
 ========================================= */
 exports.obtenerProgresoCurso = async(req, res) => {
     try {
@@ -115,21 +119,53 @@ exports.obtenerProgresoCurso = async(req, res) => {
             });
         }
 
-        const progreso = await ProgresoCurso.findOne({
+        let progreso = await ProgresoCurso.findOne({
             usuario: usuarioId,
             cursoId,
         });
 
         if (!progreso) {
-            return res.status(404).json({
-                ok: false,
-                message: "No se encontró progreso para este curso",
+            progreso = new ProgresoCurso({
+                usuario: usuarioId,
+                cursoId,
+                leccionesCompletadas: [],
+                nivelesAprobados: [],
+                intentosExamen: [],
+                completado: false,
             });
+        }
+
+        const totalLecciones = await obtenerLeccionesCurso(cursoId);
+        const totalNiveles = await obtenerTotalNivelesCurso(cursoId);
+
+        const progresoCurso =
+            totalLecciones.length > 0 ?
+            Math.round(
+                (progreso.leccionesCompletadas.length /
+                    totalLecciones.length) *
+                100
+            ) :
+            0;
+
+        // 🏁 Curso completado
+        if (
+            progresoCurso === 100 &&
+            progreso.nivelesAprobados.length === totalNiveles
+        ) {
+            progreso.completado = true;
+            await progreso.save();
         }
 
         return res.json({
             ok: true,
             progreso,
+            estadisticas: {
+                progresoCurso,
+                totalLecciones: totalLecciones.length,
+                leccionesCompletadas: progreso.leccionesCompletadas.length,
+                nivelesAprobados: progreso.nivelesAprobados,
+                totalNiveles,
+            },
         });
     } catch (error) {
         console.error("❌ Error obtenerProgresoCurso:", error);
@@ -147,7 +183,9 @@ exports.obtenerMisProgresos = async(req, res) => {
     try {
         const usuarioId = req.usuario.id;
 
-        const progresos = await ProgresoCurso.find({ usuario: usuarioId });
+        const progresos = await ProgresoCurso.find({
+            usuario: usuarioId,
+        });
 
         return res.json({
             ok: true,
