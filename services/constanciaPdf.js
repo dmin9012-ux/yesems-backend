@@ -1,10 +1,9 @@
-// constanciaPdf.js
 const PDFDocument = require("pdfkit");
 const fs = require("fs");
 const path = require("path");
 
 /**
- * Genera una constancia en PDF con identidad YES EMS y Marca de Agua central
+ * Genera una constancia en PDF con identidad YES EMS y ÚNICAMENTE Marca de Agua central
  */
 function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion }) {
     return new Promise((resolve, reject) => {
@@ -45,35 +44,29 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             const logoPath = path.resolve(process.cwd(), "assets/logo-yesems.png");
 
             if (fs.existsSync(logoPath)) {
-                doc.save(); // Guardamos el estado actual
-                doc.opacity(0.1); // Transparencia sutil para marca de agua
+                doc.save();
+                doc.opacity(0.1); // Transparencia sutil para que no tape el texto
 
-                const logoWidth = 400; // Tamaño grande para el centro
+                const logoWidth = 450; // Aumentamos un poco el tamaño para compensar la ausencia del superior
+                // Centramos vertical y horizontalmente
                 doc.image(logoPath, (width / 2) - (logoWidth / 2), (height / 2) - (logoWidth / 2.5), {
                     width: logoWidth
                 });
 
-                doc.restore(); // Restauramos la opacidad al 100% para el resto del contenido
-            }
-
-            /* ============================
-                LOGO SUPERIOR (PEQUEÑO)
-            ============================ */
-            if (fs.existsSync(logoPath)) {
-                doc.image(logoPath, width / 2 - 40, 50, { width: 80 });
+                doc.restore();
             }
 
             /* ============================
                 CONTENIDO TEXTUAL
             ============================ */
-            // Título
-            doc.moveDown(7);
+            // Título (Ajustamos el margen superior ya que no hay logo arriba)
+            doc.moveDown(5);
             doc.fillColor("#00003f")
                 .font("Helvetica-Bold")
-                .fontSize(38)
+                .fontSize(40)
                 .text("RECONOCIMIENTO", { align: "center", characterSpacing: 2 });
 
-            doc.moveDown(0.2);
+            doc.moveDown(0.5);
             doc.fontSize(14)
                 .font("Helvetica")
                 .fillColor("#666666")
@@ -83,11 +76,11 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             doc.moveDown(1.5);
             doc.fillColor("#00003f")
                 .font("Helvetica-Bold")
-                .fontSize(42)
+                .fontSize(44)
                 .text(nombreUsuario.toUpperCase(), { align: "center" });
 
             // Línea decorativa bajo el nombre
-            const lineY = doc.y + 5;
+            const lineY = doc.y + 8;
             doc.moveTo(width * 0.2, lineY)
                 .lineTo(width * 0.8, lineY)
                 .lineWidth(2)
@@ -95,7 +88,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 .stroke();
 
             // Detalles del curso
-            doc.moveDown(2);
+            doc.moveDown(2.5);
             doc.fillColor("#666666")
                 .font("Helvetica")
                 .fontSize(16)
@@ -104,7 +97,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             doc.moveDown(0.5);
             doc.fillColor("#00003f")
                 .font("Helvetica-Bold")
-                .fontSize(26)
+                .fontSize(28)
                 .text(`"${nombreCurso}"`, { align: "center" });
 
             // Fecha
@@ -117,7 +110,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             doc.moveDown(2);
             doc.fillColor("#666666")
                 .font("Helvetica")
-                .fontSize(12)
+                .fontSize(13)
                 .text(`Completado el día ${fecha}`, { align: "center" });
 
             /* ============================
@@ -139,7 +132,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                     align: "center"
                 });
 
-            // Sello de Autenticidad mejorado
+            // Sello de Autenticidad
             const sealX = width - 120;
             const sealY = height - 120;
 
