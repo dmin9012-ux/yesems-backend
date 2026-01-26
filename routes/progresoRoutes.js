@@ -17,14 +17,16 @@ router.post("/validar-leccion", auth, validarLeccion);
 
 /* =========================================
    📌 OBTENER TODOS MIS PROGRESOS
-   GET /api/progreso
+   GET /api/progreso/mis-progresos
 ========================================= */
-router.get("/", auth, obtenerMisProgresos);
+// Cambiamos "/" por "/mis-progresos" para coincidir con el frontend
+router.get("/mis-progresos", auth, obtenerMisProgresos);
 
 /* =========================================
    📌 OBTENER PROGRESO DE UN CURSO ESPECÍFICO
-   GET /api/progreso/:cursoId
+   GET /api/progreso/curso/:cursoId
 ========================================= */
-router.get("/:cursoId", auth, obtenerProgresoCurso);
+// Añadimos "/curso/" para evitar colisiones con otras rutas
+router.get("/curso/:cursoId", auth, obtenerProgresoCurso);
 
 module.exports = router;

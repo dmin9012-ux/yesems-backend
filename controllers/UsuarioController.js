@@ -1,27 +1,22 @@
-// controllers/usuarioController.js
 const Usuario = require("../models/Usuario");
-const ProgresoCurso = require("../models/ProgresoCurso");
+const ProgresoCurso = require("../models/ProgresoCurso"); // 👈 Importado para mantener la integridad de la DB
 const bcrypt = require("bcryptjs");
 const enviarCorreo = require("../util/enviarCorreo");
 
 /* =====================================================
-   👤 USUARIO NORMAL
+    👤 USUARIO NORMAL
 ===================================================== */
 
-// Obtener MI perfil incluyendo progresos
+// Obtener MI perfil
 exports.obtenerPerfil = async(req, res) => {
     try {
         const usuario = await Usuario.findById(req.usuario.id).select("-password");
         if (!usuario) {
             return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         }
-
-        // Obtener progresos
-        const progresos = await ProgresoCurso.find({ usuario: req.usuario.id });
-
-        res.json({ ok: true, usuario, progresos });
+        res.json({ ok: true, usuario });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en obtenerPerfil:", error);
         res.status(500).json({ ok: false, message: "Error al obtener perfil" });
     }
 };
@@ -30,6 +25,7 @@ exports.obtenerPerfil = async(req, res) => {
 exports.actualizarMiPerfil = async(req, res) => {
     try {
         const { nombre } = req.body;
+
         if (!nombre) {
             return res.status(400).json({ ok: false, message: "El nombre es obligatorio" });
         }
@@ -40,7 +36,7 @@ exports.actualizarMiPerfil = async(req, res) => {
 
         res.json({ ok: true, usuario });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en actualizarMiPerfil:", error);
         res.status(500).json({ ok: false, message: "Error al actualizar perfil" });
     }
 };
@@ -49,6 +45,7 @@ exports.actualizarMiPerfil = async(req, res) => {
 exports.cambiarMiPassword = async(req, res) => {
     try {
         const { passwordActual, passwordNueva } = req.body;
+
         if (!passwordActual || !passwordNueva) {
             return res.status(400).json({ ok: false, message: "Datos incompletos" });
         }
@@ -63,12 +60,13 @@ exports.cambiarMiPassword = async(req, res) => {
             return res.status(400).json({ ok: false, message: "La contraseña actual no es correcta" });
         }
 
-        usuario.password = await bcrypt.hash(passwordNueva, await bcrypt.genSalt(10));
+        const salt = await bcrypt.genSalt(10);
+        usuario.password = await bcrypt.hash(passwordNueva, salt);
         await usuario.save();
 
         res.json({ ok: true, message: "Contraseña actualizada correctamente" });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en cambiarMiPassword:", error);
         res.status(500).json({ ok: false, message: "Error al cambiar contraseña" });
     }
 };
@@ -76,51 +74,68 @@ exports.cambiarMiPassword = async(req, res) => {
 // Eliminar MI cuenta
 exports.eliminarMiCuenta = async(req, res) => {
     try {
-        await Usuario.findByIdAndDelete(req.usuario.id);
-        await ProgresoCurso.deleteMany({ usuario: req.usuario.id }); // eliminar progresos asociados
-        res.json({ ok: true, message: "Cuenta eliminada correctamente" });
+        const usuarioId = req.usuario.id;
+
+        // 1. Borrar rastro de progreso para evitar basura en la DB
+        await ProgresoCurso.deleteMany({ usuario: usuarioId });
+
+        // 2. Borrar el usuario
+        await Usuario.findByIdAndDelete(usuarioId);
+
+        res.json({ ok: true, message: "Cuenta y registros de progreso eliminados correctamente" });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en eliminarMiCuenta:", error);
         res.status(500).json({ ok: false, message: "Error al eliminar cuenta" });
     }
 };
 
 /* =====================================================
-   🔐 RECUPERAR CONTRASEÑA (FLUJO 3 PASOS)
+    🔐 RECUPERAR CONTRASEÑA (FLUJO 3 PASOS)
 ===================================================== */
 
 // 1️⃣ Solicitar código
 exports.solicitarResetPasswordCode = async(req, res) => {
     try {
         const { email } = req.body;
+
         if (!email) {
-            return res.json({ ok: true, message: "Si el correo existe, se enviará un código de recuperación" });
+            return res.json({
+                ok: true,
+                message: "Si el correo existe, se enviará un código de recuperación"
+            });
         }
 
         const usuario = await Usuario.findOne({ email });
         if (!usuario) {
-            return res.json({ ok: true, message: "Si el correo existe, se enviará un código de recuperación" });
+            return res.json({
+                ok: true,
+                message: "Si el correo existe, se enviará un código de recuperación"
+            });
         }
 
         const codigo = Math.floor(100000 + Math.random() * 900000).toString();
         usuario.resetPasswordCode = codigo;
-        usuario.resetPasswordCodeExpires = Date.now() + 10 * 60 * 1000;
+        usuario.resetPasswordCodeExpires = Date.now() + 10 * 60 * 1000; // 10 minutos
         await usuario.save();
 
         const contenidoHTML = `
-            <p>Hola <strong>${usuario.nombre}</strong>,</p>
-            <p>Recibimos una solicitud para restablecer tu contraseña en <strong>YES EMS</strong>.</p>
-            <p>Ingresa el siguiente código en la aplicación:</p>
-            <div class="code-box">${codigo}</div>
-            <p>Este código es válido por <strong>10 minutos</strong>.</p>
-            <p class="warning">Si no solicitaste este cambio, puedes ignorar este correo.</p>
+            <div style="font-family: Arial, sans-serif; color: #333;">
+                <h2>Recuperación de contraseña - YES EMS</h2>
+                <p>Hola <strong>${usuario.nombre}</strong>,</p>
+                <p>Tu código de seguridad para restablecer tu contraseña es:</p>
+                <div style="background: #f4f4f4; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; border-radius: 10px;">
+                    ${codigo}
+                </div>
+                <p>Este código expira en 10 minutos.</p>
+                <p style="color: #888; font-size: 12px;">Si no solicitaste este cambio, puedes ignorar este correo.</p>
+            </div>
         `;
 
-        await enviarCorreo(usuario.email, "Recuperación de contraseña", contenidoHTML);
+        await enviarCorreo(usuario.email, "Código de recuperación de contraseña", contenidoHTML);
 
         res.json({ ok: true, message: "Si el correo existe, se enviará un código de recuperación" });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en solicitarResetPasswordCode:", error);
         res.status(500).json({ ok: false, message: "Error al solicitar código" });
     }
 };
@@ -129,6 +144,7 @@ exports.solicitarResetPasswordCode = async(req, res) => {
 exports.verificarResetPasswordCode = async(req, res) => {
     try {
         const { email, codigo } = req.body;
+
         if (!email || !codigo) {
             return res.status(400).json({ ok: false, message: "Datos incompletos" });
         }
@@ -145,7 +161,7 @@ exports.verificarResetPasswordCode = async(req, res) => {
 
         res.json({ ok: true, message: "Código verificado correctamente" });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en verificarResetPasswordCode:", error);
         res.status(500).json({ ok: false, message: "Error al verificar código" });
     }
 };
@@ -154,6 +170,7 @@ exports.verificarResetPasswordCode = async(req, res) => {
 exports.resetPasswordConCodigo = async(req, res) => {
     try {
         const { email, codigo, passwordNueva } = req.body;
+
         if (!email || !codigo || !passwordNueva) {
             return res.status(400).json({ ok: false, message: "Datos incompletos" });
         }
@@ -168,20 +185,23 @@ exports.resetPasswordConCodigo = async(req, res) => {
             return res.status(400).json({ ok: false, message: "El código es inválido o ha expirado" });
         }
 
-        usuario.password = await bcrypt.hash(passwordNueva, await bcrypt.genSalt(10));
+        const salt = await bcrypt.genSalt(10);
+        usuario.password = await bcrypt.hash(passwordNueva, salt);
+
+        // Limpiamos los campos de reseteo
         usuario.resetPasswordCode = undefined;
         usuario.resetPasswordCodeExpires = undefined;
         await usuario.save();
 
         res.json({ ok: true, message: "Contraseña restablecida correctamente" });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en resetPasswordConCodigo:", error);
         res.status(500).json({ ok: false, message: "Error al restablecer contraseña" });
     }
 };
 
 /* =====================================================
-   🛡️ ADMIN
+    🛡️ ADMIN
 ===================================================== */
 
 exports.obtenerUsuarios = async(req, res) => {
@@ -189,7 +209,7 @@ exports.obtenerUsuarios = async(req, res) => {
         const usuarios = await Usuario.find().select("-password");
         res.json({ ok: true, usuarios });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en obtenerUsuarios:", error);
         res.status(500).json({ ok: false, message: "Error al obtener usuarios" });
     }
 };
@@ -202,7 +222,7 @@ exports.obtenerUsuario = async(req, res) => {
         }
         res.json({ ok: true, usuario });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en obtenerUsuario:", error);
         res.status(500).json({ ok: false, message: "Error al obtener usuario" });
     }
 };
@@ -216,47 +236,58 @@ exports.crearUsuario = async(req, res) => {
             return res.status(400).json({ ok: false, message: "El usuario ya existe" });
         }
 
-        const hash = await bcrypt.hash(password, await bcrypt.genSalt(10));
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash(password, salt);
 
         const usuario = new Usuario({
             nombre,
             email,
             password: hash,
-            rol,
+            rol: rol || "user",
             verificado: true
         });
 
         await usuario.save();
         res.status(201).json({ ok: true, message: "Usuario creado correctamente" });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en crearUsuario:", error);
         res.status(500).json({ ok: false, message: "Error al crear usuario" });
     }
 };
 
 exports.actualizarUsuario = async(req, res) => {
     try {
-        const usuario = await Usuario.findByIdAndUpdate(req.params.id, req.body, { new: true }).select("-password");
+        const usuario = await Usuario.findByIdAndUpdate(
+            req.params.id,
+            req.body, { new: true }
+        ).select("-password");
+
         if (!usuario) {
             return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         }
+
         res.json({ ok: true, usuario });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en actualizarUsuario:", error);
         res.status(500).json({ ok: false, message: "Error al actualizar usuario" });
     }
 };
 
 exports.eliminarUsuario = async(req, res) => {
     try {
-        const usuario = await Usuario.findByIdAndDelete(req.params.id);
+        const usuarioId = req.params.id;
+
+        // Borrar progreso del usuario antes de borrar al usuario
+        await ProgresoCurso.deleteMany({ usuario: usuarioId });
+
+        const usuario = await Usuario.findByIdAndDelete(usuarioId);
         if (!usuario) {
             return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         }
-        await ProgresoCurso.deleteMany({ usuario: req.params.id }); // eliminar progresos asociados
-        res.json({ ok: true, message: "Usuario eliminado correctamente" });
+
+        res.json({ ok: true, message: "Usuario y progreso eliminados correctamente" });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en eliminarUsuario:", error);
         res.status(500).json({ ok: false, message: "Error al eliminar usuario" });
     }
 };
@@ -268,12 +299,17 @@ exports.cambiarPassword = async(req, res) => {
             return res.status(400).json({ ok: false, message: "La nueva contraseña es obligatoria" });
         }
 
-        const hash = await bcrypt.hash(passwordNueva, await bcrypt.genSalt(10));
-        await Usuario.findByIdAndUpdate(req.params.id, { password: hash });
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash(passwordNueva, salt);
+
+        const usuario = await Usuario.findByIdAndUpdate(req.params.id, { password: hash });
+        if (!usuario) {
+            return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+        }
 
         res.json({ ok: true, message: "Contraseña actualizada correctamente" });
     } catch (error) {
-        console.error(error);
+        console.error("❌ Error en cambiarPassword:", error);
         res.status(500).json({ ok: false, message: "Error al cambiar contraseña" });
     }
 };
