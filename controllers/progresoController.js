@@ -75,7 +75,7 @@ exports.validarLeccion = async(req, res) => {
             return res.json({
                 ok: true,
                 alreadyValidated: true,
-                progreso,
+                data: progreso, // <-- aquí cambiamos a 'data'
             });
         }
 
@@ -89,7 +89,7 @@ exports.validarLeccion = async(req, res) => {
         return res.json({
             ok: true,
             message: "Lección validada correctamente",
-            progreso,
+            data: progreso, // <-- aquí también
         });
     } catch (error) {
         console.error("❌ Error validarLeccion:", error);
@@ -129,7 +129,7 @@ exports.obtenerProgresoCurso = async(req, res) => {
 
         return res.json({
             ok: true,
-            progreso,
+            data: progreso, // <-- cambio a 'data'
         });
     } catch (error) {
         console.error("❌ Error obtenerProgresoCurso:", error);
@@ -151,7 +151,7 @@ exports.obtenerMisProgresos = async(req, res) => {
 
         return res.json({
             ok: true,
-            progresos,
+            data: progresos, // <-- cambio a 'data'
         });
     } catch (error) {
         console.error("❌ Error obtenerMisProgresos:", error);
