@@ -4,15 +4,15 @@ const fs = require("fs");
 const path = require("path");
 
 /**
- * Genera una constancia en PDF con identidad YES EMS
+ * Genera una constancia en PDF con identidad YES EMS y Marca de Agua central
  */
 function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion }) {
     return new Promise((resolve, reject) => {
         try {
             const doc = new PDFDocument({
                 size: "A4",
-                layout: "landscape", // 📄 Cambiamos a horizontal para que parezca un diploma real
-                margins: { top: 0, bottom: 0, left: 0, right: 0 }, // Manejamos márgenes internos manualmente
+                layout: "landscape",
+                margins: { top: 0, bottom: 0, left: 0, right: 0 },
             });
 
             const buffers = [];
@@ -23,38 +23,54 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             const height = doc.page.height;
 
             /* ============================
-               DISEÑO DE FONDO Y MARCOS
+                DISEÑO DE FONDO Y MARCOS
             ============================ */
-            // 1. Fondo sutil
             doc.rect(0, 0, width, height).fill("#FFFFFF");
 
-            // 2. Marco Exterior (Azul Profundo)
+            // Marco Exterior (Azul Profundo)
             doc.rect(20, 20, width - 40, height - 40)
                 .lineWidth(3)
                 .strokeColor("#00003f")
                 .stroke();
 
-            // 3. Marco Interior Decorativo (Amarillo Ámbar)
+            // Marco Interior Decorativo (Amarillo Ámbar)
             doc.rect(30, 30, width - 60, height - 60)
                 .lineWidth(1)
                 .strokeColor("#fcb424")
                 .stroke();
 
             /* ============================
-               LOGO YESems
+                MARCA DE AGUA (CENTRO)
             ============================ */
             const logoPath = path.resolve(process.cwd(), "assets/logo-yesems.png");
+
             if (fs.existsSync(logoPath)) {
-                doc.image(logoPath, width / 2 - 50, 60, { width: 100 });
+                doc.save(); // Guardamos el estado actual
+                doc.opacity(0.1); // Transparencia sutil para marca de agua
+
+                const logoWidth = 400; // Tamaño grande para el centro
+                doc.image(logoPath, (width / 2) - (logoWidth / 2), (height / 2) - (logoWidth / 2.5), {
+                    width: logoWidth
+                });
+
+                doc.restore(); // Restauramos la opacidad al 100% para el resto del contenido
             }
 
             /* ============================
-               CABECERA
+                LOGO SUPERIOR (PEQUEÑO)
             ============================ */
-            doc.moveDown(8);
+            if (fs.existsSync(logoPath)) {
+                doc.image(logoPath, width / 2 - 40, 50, { width: 80 });
+            }
+
+            /* ============================
+                CONTENIDO TEXTUAL
+            ============================ */
+            // Título
+            doc.moveDown(7);
             doc.fillColor("#00003f")
                 .font("Helvetica-Bold")
-                .fontSize(35)
+                .fontSize(38)
                 .text("RECONOCIMIENTO", { align: "center", characterSpacing: 2 });
 
             doc.moveDown(0.2);
@@ -63,25 +79,22 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 .fillColor("#666666")
                 .text("OTORGADO POR YES EMS ACADEMY A:", { align: "center" });
 
-            /* ============================
-               NOMBRE DEL ESTUDIANTE
-            ============================ */
+            // Nombre del Estudiante
             doc.moveDown(1.5);
             doc.fillColor("#00003f")
                 .font("Helvetica-Bold")
-                .fontSize(40)
+                .fontSize(42)
                 .text(nombreUsuario.toUpperCase(), { align: "center" });
 
             // Línea decorativa bajo el nombre
-            doc.moveTo(width / 4, doc.y + 5)
-                .lineTo((width / 4) * 3, doc.y + 5)
+            const lineY = doc.y + 5;
+            doc.moveTo(width * 0.2, lineY)
+                .lineTo(width * 0.8, lineY)
                 .lineWidth(2)
                 .strokeColor("#fcb424")
                 .stroke();
 
-            /* ============================
-               DETALLES DEL CURSO
-            ============================ */
+            // Detalles del curso
             doc.moveDown(2);
             doc.fillColor("#666666")
                 .font("Helvetica")
@@ -91,12 +104,10 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             doc.moveDown(0.5);
             doc.fillColor("#00003f")
                 .font("Helvetica-Bold")
-                .fontSize(24)
+                .fontSize(26)
                 .text(`"${nombreCurso}"`, { align: "center" });
 
-            /* ============================
-               FECHA Y VALIDEZ
-            ============================ */
+            // Fecha
             const fecha = new Date(fechaFinalizacion).toLocaleDateString("es-MX", {
                 year: "numeric",
                 month: "long",
@@ -110,11 +121,10 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 .text(`Completado el día ${fecha}`, { align: "center" });
 
             /* ============================
-               FIRMAS Y SELLOS
+                FIRMAS Y SELLOS
             ============================ */
             const firmaY = height - 120;
 
-            // Línea de firma
             doc.moveTo(width / 2 - 100, firmaY)
                 .lineTo(width / 2 + 100, firmaY)
                 .lineWidth(1)
@@ -129,14 +139,22 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                     align: "center"
                 });
 
-            // Sello decorativo lateral (opcional)
-            doc.circle(width - 100, height - 100, 40)
+            // Sello de Autenticidad mejorado
+            const sealX = width - 120;
+            const sealY = height - 120;
+
+            doc.save();
+            doc.opacity(0.8);
+            doc.circle(sealX, sealY, 45)
                 .lineWidth(2)
                 .strokeColor("#fcb424")
                 .stroke();
 
             doc.fontSize(8)
-                .text("Sello de\nAutenticidad", width - 130, height - 105, { align: "center", width: 60 });
+                .fillColor("#fcb424")
+                .font("Helvetica-Bold")
+                .text("YES EMS\nVERIFIED", sealX - 30, sealY - 10, { align: "center", width: 60 });
+            doc.restore();
 
             doc.end();
         } catch (error) {
