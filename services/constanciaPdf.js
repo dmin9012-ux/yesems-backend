@@ -4,105 +4,98 @@ const fs = require("fs");
 const path = require("path");
 
 /**
- * Genera una constancia en PDF moderna
- * @param {Object} param0
- * @param {string} param0.nombreUsuario
- * @param {string} param0.nombreCurso
- * @param {Date|string} param0.fechaFinalizacion
- * @returns {Promise<Buffer>} PDF en buffer
+ * Genera una constancia en PDF con identidad YES EMS
  */
 function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion }) {
     return new Promise((resolve, reject) => {
         try {
             const doc = new PDFDocument({
                 size: "A4",
-                margins: { top: 50, bottom: 60, left: 50, right: 50 },
+                layout: "landscape", // 📄 Cambiamos a horizontal para que parezca un diploma real
+                margins: { top: 0, bottom: 0, left: 0, right: 0 }, // Manejamos márgenes internos manualmente
             });
 
             const buffers = [];
             doc.on("data", buffers.push.bind(buffers));
             doc.on("end", () => resolve(Buffer.concat(buffers)));
 
+            const width = doc.page.width;
+            const height = doc.page.height;
+
+            /* ============================
+               DISEÑO DE FONDO Y MARCOS
+            ============================ */
+            // 1. Fondo sutil
+            doc.rect(0, 0, width, height).fill("#FFFFFF");
+
+            // 2. Marco Exterior (Azul Profundo)
+            doc.rect(20, 20, width - 40, height - 40)
+                .lineWidth(3)
+                .strokeColor("#00003f")
+                .stroke();
+
+            // 3. Marco Interior Decorativo (Amarillo Ámbar)
+            doc.rect(30, 30, width - 60, height - 60)
+                .lineWidth(1)
+                .strokeColor("#fcb424")
+                .stroke();
+
             /* ============================
                LOGO YESems
             ============================ */
             const logoPath = path.resolve(process.cwd(), "assets/logo-yesems.png");
-
             if (fs.existsSync(logoPath)) {
-                doc.image(logoPath, doc.page.width / 2 - 60, 40, {
-                    width: 120,
-                });
+                doc.image(logoPath, width / 2 - 50, 60, { width: 100 });
             }
 
-            doc.moveDown(6);
+            /* ============================
+               CABECERA
+            ============================ */
+            doc.moveDown(8);
+            doc.fillColor("#00003f")
+                .font("Helvetica-Bold")
+                .fontSize(35)
+                .text("RECONOCIMIENTO", { align: "center", characterSpacing: 2 });
+
+            doc.moveDown(0.2);
+            doc.fontSize(14)
+                .font("Helvetica")
+                .fillColor("#666666")
+                .text("OTORGADO POR YES EMS ACADEMY A:", { align: "center" });
 
             /* ============================
-               TÍTULO
+               NOMBRE DEL ESTUDIANTE
             ============================ */
-            doc
+            doc.moveDown(1.5);
+            doc.fillColor("#00003f")
                 .font("Helvetica-Bold")
-                .fontSize(28)
-                .fillColor("#1F4ED8")
-                .text("CONSTANCIA DE FINALIZACIÓN", { align: "center" });
+                .fontSize(40)
+                .text(nombreUsuario.toUpperCase(), { align: "center" });
 
-            doc.moveDown(0.8);
-
-            doc
-                .moveTo(150, doc.y)
-                .lineTo(doc.page.width - 150, doc.y)
+            // Línea decorativa bajo el nombre
+            doc.moveTo(width / 4, doc.y + 5)
+                .lineTo((width / 4) * 3, doc.y + 5)
                 .lineWidth(2)
-                .strokeColor("#1F4ED8")
+                .strokeColor("#fcb424")
                 .stroke();
 
-            doc.moveDown(2.5);
-
             /* ============================
-               TEXTO
+               DETALLES DEL CURSO
             ============================ */
-            doc
-                .fontSize(14)
-                .fillColor("#000")
-                .font("Helvetica")
-                .text("Por medio de la presente se hace constar que:", { align: "center" });
-
             doc.moveDown(2);
-
-            /* ============================
-               NOMBRE (DESTACADO)
-            ============================ */
-            doc
-                .roundedRect(120, doc.y, doc.page.width - 240, 50, 10)
-                .fill("#F3F6FF");
-
-            doc
-                .fillColor("#2C3E50")
-                .font("Helvetica-Bold")
-                .fontSize(22)
-                .text(nombreUsuario, 0, doc.y + 15, { align: "center" });
-
-            doc.moveDown(3);
-
-            /* ============================
-               CURSO
-            ============================ */
-            doc
-                .fontSize(14)
+            doc.fillColor("#666666")
                 .font("Helvetica")
-                .fillColor("#000")
-                .text("ha completado satisfactoriamente el curso:", { align: "center" });
+                .fontSize(16)
+                .text("Por haber acreditado con éxito el programa educativo de:", { align: "center" });
 
-            doc.moveDown(1);
-
-            doc
-                .fontSize(20)
+            doc.moveDown(0.5);
+            doc.fillColor("#00003f")
                 .font("Helvetica-Bold")
-                .fillColor("#1F4ED8")
-                .text(nombreCurso, { align: "center" });
-
-            doc.moveDown(2);
+                .fontSize(24)
+                .text(`"${nombreCurso}"`, { align: "center" });
 
             /* ============================
-               FECHA
+               FECHA Y VALIDEZ
             ============================ */
             const fecha = new Date(fechaFinalizacion).toLocaleDateString("es-MX", {
                 year: "numeric",
@@ -110,23 +103,40 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 day: "numeric",
             });
 
-            doc
-                .fontSize(12)
-                .fillColor("#000")
+            doc.moveDown(2);
+            doc.fillColor("#666666")
                 .font("Helvetica")
-                .text(`Fecha de finalización: ${fecha}`, { align: "center" });
-
-            doc.moveDown(5);
+                .fontSize(12)
+                .text(`Completado el día ${fecha}`, { align: "center" });
 
             /* ============================
-               FIRMA
+               FIRMAS Y SELLOS
             ============================ */
-            doc
-                .fontSize(12)
-                .fillColor("#000")
-                .text("______________________________", { align: "center" })
-                .moveDown(0.5)
-                .text("YESems Plataforma Educativa", { align: "center" });
+            const firmaY = height - 120;
+
+            // Línea de firma
+            doc.moveTo(width / 2 - 100, firmaY)
+                .lineTo(width / 2 + 100, firmaY)
+                .lineWidth(1)
+                .strokeColor("#00003f")
+                .stroke();
+
+            doc.fontSize(12)
+                .fillColor("#00003f")
+                .font("Helvetica-Bold")
+                .text("DIRECCIÓN ACADÉMICA", width / 2 - 100, firmaY + 10, {
+                    width: 200,
+                    align: "center"
+                });
+
+            // Sello decorativo lateral (opcional)
+            doc.circle(width - 100, height - 100, 40)
+                .lineWidth(2)
+                .strokeColor("#fcb424")
+                .stroke();
+
+            doc.fontSize(8)
+                .text("Sello de\nAutenticidad", width - 130, height - 105, { align: "center", width: 60 });
 
             doc.end();
         } catch (error) {
@@ -135,6 +145,4 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
     });
 }
 
-module.exports = {
-    generarConstanciaPDF,
-};
+module.exports = { generarConstanciaPDF };
