@@ -9,7 +9,7 @@ const {
 /* =====================================================
    📘 OBTENER EXAMEN DE UN NIVEL
 ===================================================== */
-exports.obtenerExamenNivel = async (req, res) => {
+exports.obtenerExamenNivel = async(req, res) => {
     try {
         const usuarioId = req.usuario.id;
         const cursoId = req.params.cursoId;
@@ -137,7 +137,7 @@ exports.obtenerExamenNivel = async (req, res) => {
 /* =====================================================
    📝 ENVIAR EXAMEN DE UN NIVEL
 ===================================================== */
-exports.enviarExamenNivel = async (req, res) => {
+exports.enviarExamenNivel = async(req, res) => {
     try {
         const usuarioId = req.usuario.id;
         const cursoId = req.params.cursoId;
@@ -191,7 +191,7 @@ exports.enviarExamenNivel = async (req, res) => {
                 progreso.nivelesAprobados.push(nivelNumero);
             }
 
-            progreso.nivelesAprobados.sort(function (a, b) { return a - b; });
+            progreso.nivelesAprobados.sort(function(a, b) { return a - b; });
 
             const totalNiveles = await obtenerTotalNivelesCurso(cursoId);
             if (nivelNumero === totalNiveles) {
@@ -231,7 +231,7 @@ exports.enviarExamenNivel = async (req, res) => {
 /* =====================================================
    🔓 VERIFICAR ACCESO A NIVEL
 ===================================================== */
-exports.puedeAccederNivel = async (req, res) => {
+exports.puedeAccederNivel = async(req, res) => {
     try {
         const usuarioId = req.usuario.id;
         const cursoId = req.params.cursoId;
