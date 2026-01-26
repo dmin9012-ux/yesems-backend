@@ -1,5 +1,5 @@
+// services/firebaseCursos.js
 const { db } = require("./firebase");
-const crypto = require("crypto");
 
 /* =====================================================
    🧩 GENERAR ID CANÓNICO DE LECCIÓN
@@ -25,17 +25,12 @@ async function obtenerLeccionesCurso(cursoId) {
 
         for (let i = 0; i < data.niveles.length; i++) {
             const nivel = data.niveles[i];
-            const nivelNumero =
-                nivel.numero !== undefined && nivel.numero !== null ?
-                nivel.numero :
-                i + 1;
+            const nivelNumero = (nivel.numero !== undefined && nivel.numero !== null) ? nivel.numero : i + 1;
 
             if (!Array.isArray(nivel.lecciones)) continue;
 
             for (let j = 0; j < nivel.lecciones.length; j++) {
-                lecciones.push(
-                    generarLeccionId(cursoId, nivelNumero, j + 1)
-                );
+                lecciones.push(generarLeccionId(cursoId, nivelNumero, j + 1));
             }
         }
 
@@ -60,32 +55,20 @@ async function obtenerLeccionesNivel(cursoId, nivelNumero) {
         if (!data || !Array.isArray(data.niveles)) return [];
 
         let nivelEncontrado = null;
-
         for (let i = 0; i < data.niveles.length; i++) {
             const n = data.niveles[i];
-            const num =
-                n.numero !== undefined && n.numero !== null ?
-                n.numero :
-                i + 1;
-
-            if (Number(num) === Number(nivelNumero)) {
+            const numNivel = (n.numero !== undefined && n.numero !== null) ? n.numero : i + 1;
+            if (Number(numNivel) === Number(nivelNumero)) {
                 nivelEncontrado = n;
                 break;
             }
         }
 
-        if (!nivelEncontrado ||
-            !Array.isArray(nivelEncontrado.lecciones)
-        ) {
-            return [];
-        }
+        if (!nivelEncontrado || !Array.isArray(nivelEncontrado.lecciones)) return [];
 
         const lecciones = [];
-
         for (let i = 0; i < nivelEncontrado.lecciones.length; i++) {
-            lecciones.push(
-                generarLeccionId(cursoId, nivelNumero, i + 1)
-            );
+            lecciones.push(generarLeccionId(cursoId, nivelNumero, i + 1));
         }
 
         return lecciones;
@@ -110,20 +93,12 @@ async function obtenerNivelDeLeccion(cursoId, leccionId) {
 
         for (let i = 0; i < data.niveles.length; i++) {
             const nivel = data.niveles[i];
-            const nivelNumero =
-                nivel.numero !== undefined && nivel.numero !== null ?
-                nivel.numero :
-                i + 1;
+            const nivelNumero = (nivel.numero !== undefined && nivel.numero !== null) ? nivel.numero : i + 1;
 
             if (!Array.isArray(nivel.lecciones)) continue;
 
             for (let j = 0; j < nivel.lecciones.length; j++) {
-                const idCanonico = generarLeccionId(
-                    cursoId,
-                    nivelNumero,
-                    j + 1
-                );
-
+                const idCanonico = generarLeccionId(cursoId, nivelNumero, j + 1);
                 if (idCanonico === leccionId) {
                     return Number(nivelNumero);
                 }
@@ -152,58 +127,38 @@ async function obtenerPreguntasNivel(cursoId, nivelNumero, cantidad) {
         if (!data || !Array.isArray(data.niveles)) return [];
 
         let nivelEncontrado = null;
-
         for (let i = 0; i < data.niveles.length; i++) {
             const n = data.niveles[i];
-            const num =
-                n.numero !== undefined && n.numero !== null ?
-                n.numero :
-                i + 1;
-
-            if (Number(num) === Number(nivelNumero)) {
+            const numNivel = (n.numero !== undefined && n.numero !== null) ? n.numero : i + 1;
+            if (Number(numNivel) === Number(nivelNumero)) {
                 nivelEncontrado = n;
                 break;
             }
         }
 
-        if (!nivelEncontrado ||
-            !Array.isArray(nivelEncontrado.preguntas)
-        ) {
-            return [];
-        }
+        if (!nivelEncontrado || !Array.isArray(nivelEncontrado.preguntas)) return [];
 
         const preguntas = [];
-
         for (let i = 0; i < nivelEncontrado.preguntas.length; i++) {
             const p = nivelEncontrado.preguntas[i];
+            if (!p || typeof p.pregunta !== "string" || !Array.isArray(p.opciones)) continue;
 
-            if (!p ||
-                typeof p.pregunta !== "string" ||
-                !Array.isArray(p.opciones)
-            ) {
-                continue;
-            }
+            const correcta = (p.correcta !== undefined && p.correcta !== null) ? p.correcta : 0;
 
             preguntas.push({
-                id: p.id ||
-                    crypto
-                    .createHash("md5")
-                    .update(p.pregunta + i)
-                    .digest("hex"),
+                id: p.id,
                 pregunta: p.pregunta,
                 opciones: p.opciones,
-                correcta: p.correcta !== undefined && p.correcta !== null ?
-                    p.correcta : 0,
+                correcta: correcta,
             });
         }
 
+        // Mezclar preguntas
         preguntas.sort(function() {
             return Math.random() - 0.5;
         });
 
-        if (preguntas.length > cantidad) {
-            preguntas.splice(cantidad);
-        }
+        if (preguntas.length > cantidad) preguntas.splice(cantidad);
 
         return preguntas;
     } catch (error) {
@@ -242,7 +197,8 @@ async function obtenerCursoPorId(cursoId) {
         const snap = await db.collection("cursos").doc(cursoId).get();
         if (!snap.exists) return null;
 
-        return snap.data();
+        const data = snap.data();
+        return data || null;
     } catch (error) {
         console.error("❌ Firebase obtenerCursoPorId:", error);
         return null;

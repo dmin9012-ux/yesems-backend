@@ -1,3 +1,4 @@
+// models/ProgresoCurso.js
 const mongoose = require("mongoose");
 
 const ProgresoCursoSchema = new mongoose.Schema({
@@ -52,7 +53,7 @@ const ProgresoCursoSchema = new mongoose.Schema({
             pregunta: { type: String, required: true },
             opciones: { type: [String], required: true },
             correcta: { type: Number, required: true },
-        }, ],
+        }],
 
         respuestas: [{
             preguntaId: {
@@ -63,7 +64,7 @@ const ProgresoCursoSchema = new mongoose.Schema({
                 type: Number,
                 required: true,
             },
-        }, ],
+        }],
 
         aprobado: {
             type: Boolean,
@@ -79,7 +80,12 @@ const ProgresoCursoSchema = new mongoose.Schema({
             type: Date,
             default: Date.now,
         },
-    }, ],
+
+        estado: {
+            type: String,
+            default: "pendiente", // pendiente o finalizado
+        },
+    }],
 
     /* =====================================
        🏁 CURSO FINALIZADO

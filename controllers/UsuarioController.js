@@ -1,4 +1,6 @@
+// controllers/usuarioController.js
 const Usuario = require("../models/Usuario");
+const ProgresoCurso = require("../models/ProgresoCurso");
 const bcrypt = require("bcryptjs");
 const enviarCorreo = require("../util/enviarCorreo");
 
@@ -6,14 +8,18 @@ const enviarCorreo = require("../util/enviarCorreo");
    👤 USUARIO NORMAL
 ===================================================== */
 
-// Obtener MI perfil
+// Obtener MI perfil incluyendo progresos
 exports.obtenerPerfil = async(req, res) => {
     try {
         const usuario = await Usuario.findById(req.usuario.id).select("-password");
         if (!usuario) {
             return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         }
-        res.json({ ok: true, usuario });
+
+        // Obtener progresos
+        const progresos = await ProgresoCurso.find({ usuario: req.usuario.id });
+
+        res.json({ ok: true, usuario, progresos });
     } catch (error) {
         console.error(error);
         res.status(500).json({ ok: false, message: "Error al obtener perfil" });
@@ -24,7 +30,6 @@ exports.obtenerPerfil = async(req, res) => {
 exports.actualizarMiPerfil = async(req, res) => {
     try {
         const { nombre } = req.body;
-
         if (!nombre) {
             return res.status(400).json({ ok: false, message: "El nombre es obligatorio" });
         }
@@ -44,7 +49,6 @@ exports.actualizarMiPerfil = async(req, res) => {
 exports.cambiarMiPassword = async(req, res) => {
     try {
         const { passwordActual, passwordNueva } = req.body;
-
         if (!passwordActual || !passwordNueva) {
             return res.status(400).json({ ok: false, message: "Datos incompletos" });
         }
@@ -73,6 +77,7 @@ exports.cambiarMiPassword = async(req, res) => {
 exports.eliminarMiCuenta = async(req, res) => {
     try {
         await Usuario.findByIdAndDelete(req.usuario.id);
+        await ProgresoCurso.deleteMany({ usuario: req.usuario.id }); // eliminar progresos asociados
         res.json({ ok: true, message: "Cuenta eliminada correctamente" });
     } catch (error) {
         console.error(error);
@@ -88,42 +93,32 @@ exports.eliminarMiCuenta = async(req, res) => {
 exports.solicitarResetPasswordCode = async(req, res) => {
     try {
         const { email } = req.body;
-
         if (!email) {
-            return res.json({
-                ok: true,
-                message: "Si el correo existe, se enviará un código de recuperación"
-            });
+            return res.json({ ok: true, message: "Si el correo existe, se enviará un código de recuperación" });
         }
 
         const usuario = await Usuario.findOne({ email });
         if (!usuario) {
-            return res.json({
-                ok: true,
-                message: "Si el correo existe, se enviará un código de recuperación"
-            });
+            return res.json({ ok: true, message: "Si el correo existe, se enviará un código de recuperación" });
         }
 
         const codigo = Math.floor(100000 + Math.random() * 900000).toString();
         usuario.resetPasswordCode = codigo;
-        usuario.resetPasswordCodeExpires = Date.now() + 10 * 60 * 1000; // 10 minutos
+        usuario.resetPasswordCodeExpires = Date.now() + 10 * 60 * 1000;
         await usuario.save();
 
         const contenidoHTML = `
-      <p>Hola <strong>${usuario.nombre}</strong>,</p>
-      <p>Recibimos una solicitud para restablecer tu contraseña en <strong>YES EMS</strong>.</p>
-      <p>Ingresa el siguiente código en la aplicación:</p>
-      <div class="code-box">${codigo}</div>
-      <p>Este código es válido por <strong>10 minutos</strong>.</p>
-      <p class="warning">Si no solicitaste este cambio, puedes ignorar este correo.</p>
-    `;
+            <p>Hola <strong>${usuario.nombre}</strong>,</p>
+            <p>Recibimos una solicitud para restablecer tu contraseña en <strong>YES EMS</strong>.</p>
+            <p>Ingresa el siguiente código en la aplicación:</p>
+            <div class="code-box">${codigo}</div>
+            <p>Este código es válido por <strong>10 minutos</strong>.</p>
+            <p class="warning">Si no solicitaste este cambio, puedes ignorar este correo.</p>
+        `;
 
         await enviarCorreo(usuario.email, "Recuperación de contraseña", contenidoHTML);
 
-        res.json({
-            ok: true,
-            message: "Si el correo existe, se enviará un código de recuperación"
-        });
+        res.json({ ok: true, message: "Si el correo existe, se enviará un código de recuperación" });
     } catch (error) {
         console.error(error);
         res.status(500).json({ ok: false, message: "Error al solicitar código" });
@@ -134,7 +129,6 @@ exports.solicitarResetPasswordCode = async(req, res) => {
 exports.verificarResetPasswordCode = async(req, res) => {
     try {
         const { email, codigo } = req.body;
-
         if (!email || !codigo) {
             return res.status(400).json({ ok: false, message: "Datos incompletos" });
         }
@@ -160,7 +154,6 @@ exports.verificarResetPasswordCode = async(req, res) => {
 exports.resetPasswordConCodigo = async(req, res) => {
     try {
         const { email, codigo, passwordNueva } = req.body;
-
         if (!email || !codigo || !passwordNueva) {
             return res.status(400).json({ ok: false, message: "Datos incompletos" });
         }
@@ -243,15 +236,10 @@ exports.crearUsuario = async(req, res) => {
 
 exports.actualizarUsuario = async(req, res) => {
     try {
-        const usuario = await Usuario.findByIdAndUpdate(
-            req.params.id,
-            req.body, { new: true }
-        ).select("-password");
-
+        const usuario = await Usuario.findByIdAndUpdate(req.params.id, req.body, { new: true }).select("-password");
         if (!usuario) {
             return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         }
-
         res.json({ ok: true, usuario });
     } catch (error) {
         console.error(error);
@@ -265,6 +253,7 @@ exports.eliminarUsuario = async(req, res) => {
         if (!usuario) {
             return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         }
+        await ProgresoCurso.deleteMany({ usuario: req.params.id }); // eliminar progresos asociados
         res.json({ ok: true, message: "Usuario eliminado correctamente" });
     } catch (error) {
         console.error(error);
