@@ -4,6 +4,7 @@ const path = require("path");
 
 /**
  * Genera una constancia con el nombre de la institución en formato "escalera"
+ * Asegurando que la fecha y firma queden dentro de los márgenes decorativos.
  */
 function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion }) {
     return new Promise((resolve, reject) => {
@@ -26,11 +27,13 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             ============================ */
             doc.rect(0, 0, width, height).fill("#FFFFFF");
 
+            // Marco Exterior
             doc.rect(20, 20, width - 40, height - 40)
                 .lineWidth(3)
                 .strokeColor("#00003f")
                 .stroke();
 
+            // Marco Interior (Límite visual para el contenido)
             doc.rect(30, 30, width - 60, height - 60)
                 .lineWidth(1)
                 .strokeColor("#fcb424")
@@ -54,10 +57,10 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             /* ============================
                 CONTENIDO TEXTUAL
             ============================ */
-            doc.moveDown(5);
+            doc.moveDown(4.5); // Subimos un poco el inicio
             doc.fillColor("#00003f")
                 .font("Helvetica-Bold")
-                .fontSize(40)
+                .fontSize(38)
                 .text("RECONOCIMIENTO", { align: "center", characterSpacing: 2 });
 
             doc.moveDown(0.6);
@@ -66,7 +69,6 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 .fillColor("#666666")
                 .text("OTORGADO POR EL", { align: "center" });
 
-            // ✅ TEXTO EN ESCALERA (CENTRO DE CAPACITACIÓN...)
             doc.fontSize(16)
                 .font("Helvetica-Bold")
                 .fillColor("#00003f")
@@ -87,7 +89,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             doc.moveDown(1.2);
             doc.fillColor("#00003f")
                 .font("Helvetica-Bold")
-                .fontSize(44)
+                .fontSize(42)
                 .text(nombreUsuario.toUpperCase(), { align: "center" });
 
             const lineY = doc.y + 8;
@@ -100,7 +102,7 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             /* ============================
                 DETALLES DEL CURSO
             ============================ */
-            doc.moveDown(2.2);
+            doc.moveDown(2);
             doc.fillColor("#666666")
                 .font("Helvetica")
                 .fontSize(16)
@@ -109,11 +111,11 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
             doc.moveDown(0.5);
             doc.fillColor("#00003f")
                 .font("Helvetica-Bold")
-                .fontSize(28)
+                .fontSize(26)
                 .text(`"${nombreCurso}"`, { align: "center" });
 
             /* ============================
-                FECHA
+                FECHA (DENTRO DE MARGEN)
             ============================ */
             const fecha = new Date(fechaFinalizacion).toLocaleDateString("es-MX", {
                 year: "numeric",
@@ -121,16 +123,16 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 day: "numeric",
             });
 
-            doc.moveDown(3);
+            doc.moveDown(2.5); // Ajustado para que no empuje la firma fuera
             doc.fillColor("#666666")
                 .font("Helvetica")
-                .fontSize(13)
+                .fontSize(12)
                 .text(`Completado el día ${fecha}`, { align: "center" });
 
             /* ============================
-                FIRMAS Y SELLOS
+                FIRMAS Y SELLOS (DENTRO DE MARGEN)
             ============================ */
-            const firmaY = height - 100;
+            const firmaY = height - 130; // Subimos la firma (antes 100) para asegurar margen
 
             doc.moveTo(width / 2 - 100, firmaY)
                 .lineTo(width / 2 + 100, firmaY)
@@ -138,26 +140,26 @@ function generarConstanciaPDF({ nombreUsuario, nombreCurso, fechaFinalizacion })
                 .strokeColor("#00003f")
                 .stroke();
 
-            doc.fontSize(12)
+            doc.fontSize(11)
                 .fillColor("#00003f")
                 .font("Helvetica-Bold")
-                .text("DIRECCIÓN ACADÉMICA YES EMS", width / 2 - 120, firmaY + 10, {
+                .text("YES EMS", width / 2 - 120, firmaY + 10, {
                     width: 240,
                     align: "center"
                 });
 
             // Sello de Autenticidad
-            const sealX = width - 120;
-            const sealY = height - 100;
+            const sealX = width - 130; // Movido un poco a la izquierda
+            const sealY = height - 130; // Subido para estar dentro del margen
 
             doc.save();
             doc.opacity(0.8);
-            doc.circle(sealX, sealY, 45)
+            doc.circle(sealX, sealY, 40)
                 .lineWidth(2)
                 .strokeColor("#fcb424")
                 .stroke();
 
-            doc.fontSize(8)
+            doc.fontSize(7)
                 .fillColor("#fcb424")
                 .font("Helvetica-Bold")
                 .text("YES EMS\nVERIFIED", sealX - 30, sealY - 10, { align: "center", width: 60 });
