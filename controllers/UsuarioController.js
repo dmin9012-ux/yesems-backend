@@ -1,5 +1,5 @@
 const Usuario = require("../models/Usuario");
-const ProgresoCurso = require("../models/ProgresoCurso"); // 👈 Importado para mantener la integridad de la DB
+const ProgresoCurso = require("../models/ProgresoCurso");
 const bcrypt = require("bcryptjs");
 const enviarCorreo = require("../util/enviarCorreo");
 
@@ -14,6 +14,18 @@ exports.obtenerPerfil = async(req, res) => {
         if (!usuario) {
             return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         }
+
+        // Verificación automática de expiración al cargar perfil
+        if (usuario.suscripcion && usuario.suscripcion.activa && usuario.suscripcion.fechaFin) {
+            const ahora = new Date();
+            const fechaFin = new Date(usuario.suscripcion.fechaFin);
+            if (ahora > fechaFin) {
+                usuario.suscripcion.activa = false;
+                usuario.suscripcion.mpStatus = "expired";
+                await usuario.save();
+            }
+        }
+
         res.json({ ok: true, usuario });
     } catch (error) {
         console.error("❌ Error en obtenerPerfil:", error);
@@ -243,7 +255,7 @@ exports.crearUsuario = async(req, res) => {
             nombre,
             email,
             password: hash,
-            rol: rol || "user",
+            rol: rol || "usuario",
             verificado: true
         });
 
@@ -277,7 +289,6 @@ exports.eliminarUsuario = async(req, res) => {
     try {
         const usuarioId = req.params.id;
 
-        // Borrar progreso del usuario antes de borrar al usuario
         await ProgresoCurso.deleteMany({ usuario: usuarioId });
 
         const usuario = await Usuario.findByIdAndDelete(usuarioId);
@@ -311,5 +322,61 @@ exports.cambiarPassword = async(req, res) => {
     } catch (error) {
         console.error("❌ Error en cambiarPassword:", error);
         res.status(500).json({ ok: false, message: "Error al cambiar contraseña" });
+    }
+};
+
+/* =====================================================
+    💳 ESTADO DE SUSCRIPCIÓN
+    GET /api/usuario/suscripcion
+===================================================== */
+exports.estadoSuscripcion = async(req, res) => {
+    try {
+        const usuarioId = req.usuario.id;
+        const usuario = await Usuario.findById(usuarioId).select("suscripcion");
+
+        if (!usuario) {
+            return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+        }
+
+        // Si no tiene objeto de suscripción o está inactiva
+        if (!usuario.suscripcion || usuario.suscripcion.activa !== true) {
+            return res.status(200).json({
+                ok: true,
+                activa: false,
+                mensaje: "No tienes una suscripción activa",
+            });
+        }
+
+        const ahora = new Date();
+        const fechaFin = new Date(usuario.suscripcion.fechaFin);
+
+        // Doble verificación de seguridad por fecha
+        if (ahora > fechaFin) {
+            usuario.suscripcion.activa = false;
+            usuario.suscripcion.mpStatus = "expired";
+            await usuario.save();
+
+            return res.status(200).json({
+                ok: true,
+                activa: false,
+                mensaje: "La suscripción ha expirado",
+            });
+        }
+
+        return res.status(200).json({
+            ok: true,
+            activa: true,
+            tipo: usuario.suscripcion.tipo,
+            fechaInicio: usuario.suscripcion.fechaInicio,
+            fechaFin: usuario.suscripcion.fechaFin,
+            status: usuario.suscripcion.mpStatus
+        });
+
+    } catch (error) {
+        console.error("❌ Error estadoSuscripcion:", error.message);
+        return res.status(500).json({
+            ok: false,
+            message: "Error al consultar suscripción",
+        });
     }
 };

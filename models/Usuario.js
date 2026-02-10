@@ -1,4 +1,3 @@
-// models/Usuario.js
 const mongoose = require("mongoose");
 
 const UsuarioSchema = new mongoose.Schema({
@@ -7,7 +6,6 @@ const UsuarioSchema = new mongoose.Schema({
         required: true,
         trim: true,
     },
-
     email: {
         type: String,
         required: true,
@@ -15,63 +13,37 @@ const UsuarioSchema = new mongoose.Schema({
         lowercase: true,
         trim: true,
     },
-
     password: {
         type: String,
         required: true,
     },
 
     /* ===============================
-       📧 VERIFICACIÓN DE CORREO
+        📧 VERIFICACIÓN DE CORREO
     =============================== */
     verificado: {
         type: Boolean,
         default: false,
     },
-
-    tokenVerificacion: {
-        type: String,
-        default: null,
-    },
-
-    tokenExpira: {
-        type: Date,
-        default: null,
-    },
+    tokenVerificacion: { type: String, default: null },
+    tokenExpira: { type: Date, default: null },
 
     /* ===============================
-       🔐 RECUPERAR CONTRASEÑA
+        🔐 RECUPERAR CONTRASEÑA
     =============================== */
-    resetPasswordToken: {
-        type: String,
-        default: null,
-    },
-
-    resetPasswordExpires: {
-        type: Date,
-        default: null,
-    },
-
-    // Nuevo flujo: código de 6 dígitos
-    resetPasswordCode: {
-        type: String,
-        default: null,
-    },
-
-    resetPasswordCodeExpires: {
-        type: Date,
-        default: null,
-    },
+    resetPasswordToken: { type: String, default: null },
+    resetPasswordExpires: { type: Date, default: null },
+    resetPasswordCode: { type: String, default: null },
+    resetPasswordCodeExpires: { type: Date, default: null },
 
     /* ===============================
-       👤 ROLES / ESTADO
+        👤 ROLES / ESTADO
     =============================== */
     rol: {
         type: String,
         enum: ["admin", "usuario"],
         default: "usuario",
     },
-
     estado: {
         type: String,
         enum: ["activo", "suspendido"],
@@ -79,21 +51,33 @@ const UsuarioSchema = new mongoose.Schema({
     },
 
     /* ===============================
-       📊 PROGRESO DEL USUARIO
+        💳 SUSCRIPCIÓN (LISTO PARA MERCADO PAGO)
     =============================== */
-    leccionesValidadas: {
-        type: [String],
-        default: [],
+    suscripcion: {
+        activa: {
+            type: Boolean,
+            default: false,
+        },
+        tipo: {
+            type: String,
+            enum: ["semanal", "mensual", "ninguna"],
+            default: "ninguna",
+        },
+        fechaInicio: { type: Date, default: null },
+        fechaFin: { type: Date, default: null },
+        // Guardamos el ID de pago o suscripción
+        mercadoPagoId: { type: String, default: null },
+        // Estatus: authorized, pending, cancelled, etc.
+        mpStatus: { type: String, default: null }
     },
 
-    cursosCompletados: {
-        type: [String],
-        default: [],
-    },
+    /* ===============================
+        📊 PROGRESO DEL USUARIO
+    =============================== */
+    leccionesValidadas: { type: [String], default: [] },
+    cursosCompletados: { type: [String], default: [] },
 
-}, {
-    timestamps: true,
-});
+}, { timestamps: true });
 
-// Evitar redefinir el modelo en entornos con hot reload (Next.js / Vercel)
+// Evitar redefinir el modelo si ya existe
 module.exports = mongoose.models.Usuario || mongoose.model("Usuario", UsuarioSchema);
