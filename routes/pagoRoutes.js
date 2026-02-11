@@ -9,9 +9,9 @@ const pagoController = require("../controllers/pagoController");
     💳 CREAR PAGO DE SUSCRIPCIÓN
     POST /api/pago/crear
     - Requiere: Usuario logueado (JWT)
-    - Acción: Genera el link de suscripción recurrente
+    - Cambiado de "/crear" a "/crear-preferencia" para que coincida con el Front
 ========================================= */
-router.post("/crear", auth, pagoController.crearPagoSuscripcion);
+router.post("/crear-preferencia", auth, pagoController.crearPagoSuscripcion);
 
 /* =========================================
     🔔 WEBHOOK MERCADO PAGO
