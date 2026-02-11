@@ -20,7 +20,7 @@ const crearPlanSuscripcion = async(usuarioEmail, usuarioId) => {
                 id: "premium_semanal_100",
                 title: "Suscripción Semanal YESems",
                 quantity: 1,
-                unit_price: 100, // 💵 Actualizado a $100 MXN
+                unit_price: 10, // 💵 Actualizado a $100 MXN
                 currency_id: "MXN",
                 category_id: "learning",
                 description: "Acceso total a la plataforma YESems por 7 días"
