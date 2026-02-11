@@ -7,9 +7,9 @@ const client = new MercadoPagoConfig({
 });
 
 /**
- * Crea una preferencia de pago para acceso semanal (Pago Único)
+ * Crea una preferencia de pago para acceso (Modo Prueba)
  * @param {string} usuarioEmail - Email del comprador
- * @param {string} usuarioId - ID del usuario en MongoDB (para external_reference)
+ * @param {string} usuarioId - ID del usuario en MongoDB
  */
 const crearPlanSuscripcion = async(usuarioEmail, usuarioId) => {
     const preference = new Preference(client);
@@ -17,38 +17,39 @@ const crearPlanSuscripcion = async(usuarioEmail, usuarioId) => {
     try {
         const body = {
             items: [{
-                id: "premium_semanal_100",
-                title: "Suscripción Semanal YESems",
+                id: "premium_prueba_1h",
+                title: "Suscripción YESems (Modo Prueba)",
                 quantity: 1,
-                unit_price: 10, // 💵 Actualizado a $100 MXN
+                unit_price: 10, // 💵 Manteniendo $10 MXN para pruebas
                 currency_id: "MXN",
                 category_id: "learning",
-                description: "Acceso total a la plataforma YESems por 7 días"
+                description: "Acceso total a la plataforma YESems por 1 hora"
             }],
             payer: {
                 email: usuarioEmail
             },
-            // El external_reference es vital para que el Webhook sepa a quién activar
+            // El external_reference permite que el Webhook identifique al usuario
             external_reference: usuarioId.toString(),
 
-            // URLs de retorno al Frontend
+            // 🔄 URLs de retorno: Redirigimos a la página donde pusimos la lógica de actualización
             back_urls: {
-                success: `${process.env.FRONT_URL}/perfil`,
-                failure: `${process.env.FRONT_URL}/perfil`,
-                pending: `${process.env.FRONT_URL}/perfil`
+                success: `${process.env.FRONTEND_URL}/suscripcion`,
+                failure: `${process.env.FRONTEND_URL}/suscripcion`,
+                pending: `${process.env.FRONTEND_URL}/suscripcion`
             },
-            auto_return: "approved", // Redirige automáticamente tras un pago exitoso
 
-            // URL del Webhook (debe ser la URL de tu backend en Railway)
+            // "approved" redirige automáticamente al usuario sin que tenga que dar clic en "Volver"
+            auto_return: "approved",
+
+            // URL del Webhook (debe ser tu URL de Railway)
             notification_url: `${process.env.BACKEND_URL}/api/pago/webhook`,
 
-            // Modo binario: solo permite pagos que se aprueban o rechazan al instante
+            // Solo permite pagos con aprobación inmediata
             binary_mode: true
         };
 
         const response = await preference.create({ body });
 
-        // Retornamos el objeto que contiene el 'init_point'
         return response;
     } catch (error) {
         console.error("❌ Error en mercadoPagoService (Preference):", error.message);

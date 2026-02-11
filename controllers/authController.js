@@ -6,13 +6,12 @@ const crypto = require("crypto");
 const enviarCorreo = require("../util/enviarCorreo");
 
 /* =========================
-   🔹 REGISTRO DE USUARIO
+    🔹 REGISTRO DE USUARIO
 ========================= */
 exports.registro = async(req, res) => {
     try {
         const { nombre, email, password } = req.body;
 
-        // Validación básica
         if (!nombre || !email || !password) {
             return res.status(400).json({ ok: false, message: "Todos los campos son obligatorios" });
         }
@@ -24,9 +23,8 @@ exports.registro = async(req, res) => {
 
         const hashed = await bcrypt.hash(password, 10);
 
-        // Crear token de verificación
         const tokenVerificacion = crypto.randomBytes(32).toString("hex");
-        const tokenExpira = Date.now() + 1000 * 60 * 60 * 24; // 24h
+        const tokenExpira = Date.now() + 1000 * 60 * 60 * 24;
 
         const usuario = new Usuario({
             nombre,
@@ -39,10 +37,8 @@ exports.registro = async(req, res) => {
 
         await usuario.save();
 
-        // Enlace de verificación
         const enlace = `${process.env.FRONTEND_URL}/verificar-correo/${tokenVerificacion}`;
 
-        // Enviar correo sin bloquear la respuesta
         enviarCorreo(
             email,
             "Verifica tu cuenta",
@@ -61,7 +57,7 @@ exports.registro = async(req, res) => {
 };
 
 /* =========================
-   🔹 VERIFICAR CUENTA
+    🔹 VERIFICAR CUENTA
 ========================= */
 exports.verificar = async(req, res) => {
     try {
@@ -90,7 +86,7 @@ exports.verificar = async(req, res) => {
 };
 
 /* =========================
-   🔹 LOGIN DE USUARIO
+    🔹 LOGIN DE USUARIO (CORREGIDO)
 ========================= */
 exports.login = async(req, res) => {
     try {
@@ -119,6 +115,7 @@ exports.login = async(req, res) => {
             process.env.JWT_SECRET, { expiresIn: "7d" }
         );
 
+        // ✅ CORRECCIÓN: Ahora enviamos el objeto suscripción completo al Frontend
         return res.json({
             ok: true,
             token,
@@ -126,7 +123,8 @@ exports.login = async(req, res) => {
                 id: usuario._id,
                 nombre: usuario.nombre,
                 email: usuario.email,
-                rol: usuario.rol
+                rol: usuario.rol,
+                suscripcion: usuario.suscripcion // 👈 Esto permite que al loguear ya sepa si es premium
             }
         });
 
@@ -137,7 +135,7 @@ exports.login = async(req, res) => {
 };
 
 /* =========================
-   🔹 REENVIAR CORREO DE VERIFICACIÓN
+    🔹 REENVIAR CORREO DE VERIFICACIÓN
 ========================= */
 exports.reenviarVerificacion = async(req, res) => {
     try {
@@ -156,7 +154,6 @@ exports.reenviarVerificacion = async(req, res) => {
             return res.status(400).json({ ok: false, message: "La cuenta ya está verificada" });
         }
 
-        // Nuevo token de verificación
         const tokenVerificacion = crypto.randomBytes(32).toString("hex");
         const tokenExpira = Date.now() + 1000 * 60 * 60 * 24;
 
@@ -166,7 +163,6 @@ exports.reenviarVerificacion = async(req, res) => {
 
         const enlace = `${process.env.FRONTEND_URL}/verificar-correo/${tokenVerificacion}`;
 
-        // Enviar correo sin bloquear
         enviarCorreo(
             email,
             "Reenvío de verificación",

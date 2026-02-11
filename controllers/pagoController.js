@@ -13,20 +13,18 @@ const client = new MercadoPagoConfig({
 ========================================= */
 exports.crearPagoSuscripcion = async(req, res) => {
     try {
-        const usuarioId = req.usuario.id; // Obtenido del middleware 'auth'
+        const usuarioId = req.usuario.id;
         const usuario = await Usuario.findById(usuarioId);
 
         if (!usuario) {
             return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         }
 
-        // Llamamos al servicio para generar el link de Mercado Pago
-        // Pasamos el email y el ID (este último para el external_reference)
         const response = await mercadoPagoService.crearPlanSuscripcion(usuario.email, usuario._id);
 
         res.status(200).json({
             ok: true,
-            init_point: response.init_point, // URL a la que redirigiremos al usuario
+            init_point: response.init_point,
         });
 
     } catch (error) {
@@ -42,26 +40,21 @@ exports.crearPagoSuscripcion = async(req, res) => {
 exports.webhookMercadoPago = async(req, res) => {
     const query = req.query;
     const body = req.body;
-
-    // Mercado Pago envía el tipo de evento en 'topic' o 'type'
     const topic = query.topic || query.type;
 
     try {
         if (topic === "payment") {
-            // Obtenemos el ID del pago
             const paymentId = query.id || (body.data && body.data.id);
 
             if (!paymentId) {
                 return res.status(200).send("OK");
             }
 
-            // Consultamos los detalles del pago a Mercado Pago
             const payment = new Payment(client);
             const data = await payment.get({ id: paymentId });
 
-            // Si el pago fue aprobado, activamos la suscripción
             if (data.status === "approved") {
-                const usuarioId = data.external_reference; // Recuperamos el ID que enviamos al inicio
+                const usuarioId = data.external_reference;
 
                 const fechaInicio = new Date();
                 const fechaFin = new Date();
@@ -70,36 +63,33 @@ exports.webhookMercadoPago = async(req, res) => {
                  * ⏱️ CONFIGURACIÓN DE DURACIÓN (MODO PRUEBA)
                  * ==========================================
                  */
-                // DESCOMENTA esta línea para producción (7 días):
-                // fechaFin.setDate(fechaFin.getDate() + 7); 
+                // Producción: fechaFin.setDate(fechaFin.getDate() + 7); 
 
-                // COMENTA esta línea después de tus pruebas (5 minutos):
-                fechaFin.setMinutes(fechaFin.getMinutes() + 5);
+                // 🛠️ MODO PRUEBA: 1 HORA (60 minutos)
+                fechaFin.setHours(fechaFin.getHours() + 1);
 
                 const usuario = await Usuario.findById(usuarioId);
 
                 if (usuario) {
                     usuario.suscripcion = {
-                        estado: "active", // Estado para que el Front lo reconozca
-                        tipo: "semanal",
+                        estado: "active",
+                        tipo: "prueba_hora",
                         fechaInicio: fechaInicio,
-                        fechaFin: fechaFin, // Fecha de corte
+                        fechaFin: fechaFin,
                         mercadoPagoId: paymentId.toString(),
                         mpStatus: data.status
                     };
 
                     await usuario.save();
-                    console.log(`✅ Suscripción activada (5 min) para: ${usuario.email}`);
+                    console.log(`✅ MODO PRUEBA: Suscripción de 1 HORA activada para: ${usuario.email}`);
                 }
             }
         }
 
-        // Mercado Pago necesita recibir un 200 OK para dejar de enviar la notificación
         res.status(200).send("OK");
 
     } catch (error) {
         console.error("❌ Error en Webhook:", error.message);
-        // Respondemos con error para que MP reintente después si fue un fallo temporal
         res.status(500).send("Error interno");
     }
 };
