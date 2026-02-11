@@ -1,5 +1,5 @@
 const { MercadoPagoConfig, Payment } = require('mercadopago');
-const Usuario = require("../models/Usuario"); // Asegúrate de que la 'u' sea minúscula si así está el archivo
+const Usuario = require("../models/Usuario");
 const mercadoPagoService = require("../services/mercadoPagoService");
 
 const client = new MercadoPagoConfig({
@@ -8,7 +8,7 @@ const client = new MercadoPagoConfig({
 
 /* =========================================
     💳 CREAR SUSCRIPCIÓN (Link de Cobro)
-    POST /api/pago/crear
+    POST /api/pago/crear-preferencia
 ========================================= */
 exports.crearPagoSuscripcion = async(req, res) => {
     try {
@@ -19,12 +19,12 @@ exports.crearPagoSuscripcion = async(req, res) => {
             return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         }
 
-        // Llamamos al service que creamos en el paso anterior
+        // Llamamos al service pasándole email e ID para el external_reference
         const response = await mercadoPagoService.crearPlanSuscripcion(usuario.email, usuario._id);
 
         res.status(200).json({
             ok: true,
-            init_point: response.init_point, // URL de Mercado Pago
+            init_point: response.init_point,
         });
 
     } catch (error) {
@@ -44,7 +44,6 @@ exports.webhookMercadoPago = async(req, res) => {
     const topic = query.topic || query.type;
 
     try {
-        // Manejamos la notificación de pago aprobado
         if (topic === "payment") {
             const paymentId = query.id || (body.data && body.data.id);
 
@@ -56,23 +55,23 @@ exports.webhookMercadoPago = async(req, res) => {
             const data = await payment.get({ id: paymentId });
 
             if (data.status === "approved") {
-                // El external_reference contiene el ID del usuario (definido en el Service)
                 const usuarioId = data.external_reference;
 
                 const fechaInicio = new Date();
                 const fechaFin = new Date();
-                fechaFin.setDate(fechaFin.getDate() + 7); // Duración de 1 semana
+                fechaFin.setDate(fechaFin.getDate() + 7); // 1 semana de acceso
 
                 const usuario = await Usuario.findById(usuarioId);
 
                 if (usuario) {
+                    // Ajustamos la estructura para que coincida con el Frontend
                     usuario.suscripcion = {
-                        activa: true,
+                        estado: "active", // 👈 Crucial para AuthContext
                         tipo: "semanal",
                         fechaInicio: fechaInicio,
                         fechaFin: fechaFin,
-                        mercadoPagoId: paymentId,
-                        mpStatus: "authorized"
+                        mercadoPagoId: paymentId.toString(),
+                        mpStatus: data.status
                     };
 
                     await usuario.save();
@@ -81,7 +80,6 @@ exports.webhookMercadoPago = async(req, res) => {
             }
         }
 
-        // Siempre responder 200 a Mercado Pago
         res.status(200).send("OK");
 
     } catch (error) {
