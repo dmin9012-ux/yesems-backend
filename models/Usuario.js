@@ -33,7 +33,7 @@ const UsuarioSchema = new mongoose.Schema({
         },
         tipo: {
             type: String,
-            // ✅ CORRECCIÓN: Agregamos "prueba_hora" a la lista de permitidos
+            // Se mantiene "prueba_hora" en la lista para permitir la activación manual
             enum: ["semanal", "mensual", "prueba_corta", "prueba_hora", "ninguna"],
             default: "ninguna"
         },

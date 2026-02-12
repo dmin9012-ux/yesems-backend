@@ -16,11 +16,12 @@ exports.obtenerPerfil = async(req, res) => {
         }
 
         // Verificación automática de expiración al cargar perfil
-        if (usuario.suscripcion && usuario.suscripcion.activa && usuario.suscripcion.fechaFin) {
+        // ✅ Ajustado para usar 'estado === "active"' según tu modelo
+        if (usuario.suscripcion && usuario.suscripcion.estado === "active" && usuario.suscripcion.fechaFin) {
             const ahora = new Date();
             const fechaFin = new Date(usuario.suscripcion.fechaFin);
             if (ahora > fechaFin) {
-                usuario.suscripcion.activa = false;
+                usuario.suscripcion.estado = "expired";
                 usuario.suscripcion.mpStatus = "expired";
                 await usuario.save();
             }
@@ -339,7 +340,8 @@ exports.estadoSuscripcion = async(req, res) => {
         }
 
         // Si no tiene objeto de suscripción o está inactiva
-        if (!usuario.suscripcion || usuario.suscripcion.activa !== true) {
+        // ✅ Ajustado: Compara contra 'active' según tu enum
+        if (!usuario.suscripcion || usuario.suscripcion.estado !== "active") {
             return res.status(200).json({
                 ok: true,
                 activa: false,
@@ -352,7 +354,7 @@ exports.estadoSuscripcion = async(req, res) => {
 
         // Doble verificación de seguridad por fecha
         if (ahora > fechaFin) {
-            usuario.suscripcion.activa = false;
+            usuario.suscripcion.estado = "expired";
             usuario.suscripcion.mpStatus = "expired";
             await usuario.save();
 
@@ -389,7 +391,6 @@ exports.activarSuscripcionAdmin = async(req, res) => {
     try {
         const { usuarioId, horas, tipo } = req.body;
 
-        // 1. Validaciones básicas
         if (!usuarioId || !horas) {
             return res.status(400).json({ ok: false, message: "Faltan datos (ID o Horas)" });
         }
@@ -399,32 +400,32 @@ exports.activarSuscripcionAdmin = async(req, res) => {
             return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         }
 
-        // 2. Calcular tiempos
-        const fechaInicio = new Date();
+        // ✅ Calcular fecha de fin sumando las horas a la fecha actual
         const fechaFin = new Date();
-        // Convertimos horas a milisegundos y sumamos
-        fechaFin.setMilliseconds(fechaFin.getMilliseconds() + (horas * 60 * 60 * 1000));
+        fechaFin.setTime(fechaFin.getTime() + (parseInt(horas) * 60 * 60 * 1000));
 
-        // 3. Actualizar objeto de suscripción
+        // ✅ Mapeo exacto al esquema de tu modelo (estado: active)
         usuario.suscripcion = {
             estado: "active",
             tipo: tipo || "prueba_hora",
-            fechaInicio: fechaInicio,
+            fechaInicio: new Date(),
             fechaFin: fechaFin,
-            mercadoPagoId: `ADMIN_ACT_BY_${req.usuario.id}`, // Guardamos quién lo activó
-            mpStatus: "approved"
+            mpStatus: "approved",
+            mercadoPagoId: `ADMIN_ACT_${req.usuario.id}`
         };
 
+        // Avisamos a Mongoose que el objeto 'suscripcion' cambió
+        usuario.markModified('suscripcion');
         await usuario.save();
 
         res.json({
             ok: true,
-            message: `Suscripción activada para ${usuario.nombre} por ${horas} hora(s).`,
+            message: `¡Premium activado por ${horas}h para ${usuario.nombre}!`,
             fechaFin: fechaFin
         });
 
     } catch (error) {
         console.error("❌ Error en activarSuscripcionAdmin:", error);
-        res.status(500).json({ ok: false, message: "Error al activar suscripción" });
+        res.status(500).json({ ok: false, message: "Error interno" });
     }
 };
