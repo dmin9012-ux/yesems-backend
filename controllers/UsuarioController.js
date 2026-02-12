@@ -15,8 +15,7 @@ exports.obtenerPerfil = async(req, res) => {
             return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         }
 
-        // Verificación automática de expiración al cargar perfil
-        // ✅ Ajustado para usar 'estado === "active"' según tu modelo
+        // ✅ CORRECCIÓN: Tu modelo usa 'estado' (string), no 'activa' (boolean)
         if (usuario.suscripcion && usuario.suscripcion.estado === "active" && usuario.suscripcion.fechaFin) {
             const ahora = new Date();
             const fechaFin = new Date(usuario.suscripcion.fechaFin);
@@ -38,15 +37,12 @@ exports.obtenerPerfil = async(req, res) => {
 exports.actualizarMiPerfil = async(req, res) => {
     try {
         const { nombre } = req.body;
-
         if (!nombre) {
             return res.status(400).json({ ok: false, message: "El nombre es obligatorio" });
         }
-
         const usuario = await Usuario.findByIdAndUpdate(
             req.usuario.id, { nombre }, { new: true }
         ).select("-password");
-
         res.json({ ok: true, usuario });
     } catch (error) {
         console.error("❌ Error en actualizarMiPerfil:", error);
@@ -58,25 +54,20 @@ exports.actualizarMiPerfil = async(req, res) => {
 exports.cambiarMiPassword = async(req, res) => {
     try {
         const { passwordActual, passwordNueva } = req.body;
-
         if (!passwordActual || !passwordNueva) {
             return res.status(400).json({ ok: false, message: "Datos incompletos" });
         }
-
         const usuario = await Usuario.findById(req.usuario.id);
         if (!usuario) {
             return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         }
-
         const valida = await bcrypt.compare(passwordActual, usuario.password);
         if (!valida) {
             return res.status(400).json({ ok: false, message: "La contraseña actual no es correcta" });
         }
-
         const salt = await bcrypt.genSalt(10);
         usuario.password = await bcrypt.hash(passwordNueva, salt);
         await usuario.save();
-
         res.json({ ok: true, message: "Contraseña actualizada correctamente" });
     } catch (error) {
         console.error("❌ Error en cambiarMiPassword:", error);
@@ -88,13 +79,8 @@ exports.cambiarMiPassword = async(req, res) => {
 exports.eliminarMiCuenta = async(req, res) => {
     try {
         const usuarioId = req.usuario.id;
-
-        // 1. Borrar rastro de progreso para evitar basura en la DB
         await ProgresoCurso.deleteMany({ usuario: usuarioId });
-
-        // 2. Borrar el usuario
         await Usuario.findByIdAndDelete(usuarioId);
-
         res.json({ ok: true, message: "Cuenta y registros de progreso eliminados correctamente" });
     } catch (error) {
         console.error("❌ Error en eliminarMiCuenta:", error);
@@ -106,46 +92,29 @@ exports.eliminarMiCuenta = async(req, res) => {
     🔐 RECUPERAR CONTRASEÑA (FLUJO 3 PASOS)
 ===================================================== */
 
-// 1️⃣ Solicitar código
 exports.solicitarResetPasswordCode = async(req, res) => {
     try {
         const { email } = req.body;
-
         if (!email) {
-            return res.json({
-                ok: true,
-                message: "Si el correo existe, se enviará un código de recuperación"
-            });
+            return res.json({ ok: true, message: "Si el correo existe, se enviará un código de recuperación" });
         }
-
         const usuario = await Usuario.findOne({ email });
         if (!usuario) {
-            return res.json({
-                ok: true,
-                message: "Si el correo existe, se enviará un código de recuperación"
-            });
+            return res.json({ ok: true, message: "Si el correo existe, se enviará un código de recuperación" });
         }
-
         const codigo = Math.floor(100000 + Math.random() * 900000).toString();
         usuario.resetPasswordCode = codigo;
-        usuario.resetPasswordCodeExpires = Date.now() + 10 * 60 * 1000; // 10 minutos
+        usuario.resetPasswordCodeExpires = Date.now() + 10 * 60 * 1000;
         await usuario.save();
-
         const contenidoHTML = `
             <div style="font-family: Arial, sans-serif; color: #333;">
                 <h2>Recuperación de contraseña - YES EMS</h2>
                 <p>Hola <strong>${usuario.nombre}</strong>,</p>
-                <p>Tu código de seguridad para restablecer tu contraseña es:</p>
-                <div style="background: #f4f4f4; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; border-radius: 10px;">
-                    ${codigo}
-                </div>
+                <p>Tu código de seguridad para restablecer tu contraseña es: <strong>${codigo}</strong></p>
                 <p>Este código expira en 10 minutos.</p>
-                <p style="color: #888; font-size: 12px;">Si no solicitaste este cambio, puedes ignorar este correo.</p>
             </div>
         `;
-
         await enviarCorreo(usuario.email, "Código de recuperación de contraseña", contenidoHTML);
-
         res.json({ ok: true, message: "Si el correo existe, se enviará un código de recuperación" });
     } catch (error) {
         console.error("❌ Error en solicitarResetPasswordCode:", error);
@@ -153,62 +122,39 @@ exports.solicitarResetPasswordCode = async(req, res) => {
     }
 };
 
-// 2️⃣ Verificar código
 exports.verificarResetPasswordCode = async(req, res) => {
     try {
         const { email, codigo } = req.body;
-
-        if (!email || !codigo) {
-            return res.status(400).json({ ok: false, message: "Datos incompletos" });
-        }
-
+        if (!email || !codigo) return res.status(400).json({ ok: false, message: "Datos incompletos" });
         const usuario = await Usuario.findOne({
             email,
             resetPasswordCode: codigo,
             resetPasswordCodeExpires: { $gt: Date.now() }
         });
-
-        if (!usuario) {
-            return res.status(400).json({ ok: false, message: "El código es inválido o ha expirado" });
-        }
-
+        if (!usuario) return res.status(400).json({ ok: false, message: "El código es inválido o ha expirado" });
         res.json({ ok: true, message: "Código verificado correctamente" });
     } catch (error) {
-        console.error("❌ Error en verificarResetPasswordCode:", error);
         res.status(500).json({ ok: false, message: "Error al verificar código" });
     }
 };
 
-// 3️⃣ Restablecer contraseña
 exports.resetPasswordConCodigo = async(req, res) => {
     try {
         const { email, codigo, passwordNueva } = req.body;
-
-        if (!email || !codigo || !passwordNueva) {
-            return res.status(400).json({ ok: false, message: "Datos incompletos" });
-        }
-
+        if (!email || !codigo || !passwordNueva) return res.status(400).json({ ok: false, message: "Datos incompletos" });
         const usuario = await Usuario.findOne({
             email,
             resetPasswordCode: codigo,
             resetPasswordCodeExpires: { $gt: Date.now() }
         });
-
-        if (!usuario) {
-            return res.status(400).json({ ok: false, message: "El código es inválido o ha expirado" });
-        }
-
+        if (!usuario) return res.status(400).json({ ok: false, message: "El código es inválido o ha expirado" });
         const salt = await bcrypt.genSalt(10);
         usuario.password = await bcrypt.hash(passwordNueva, salt);
-
-        // Limpiamos los campos de reseteo
         usuario.resetPasswordCode = undefined;
         usuario.resetPasswordCodeExpires = undefined;
         await usuario.save();
-
         res.json({ ok: true, message: "Contraseña restablecida correctamente" });
     } catch (error) {
-        console.error("❌ Error en resetPasswordConCodigo:", error);
         res.status(500).json({ ok: false, message: "Error al restablecer contraseña" });
     }
 };
@@ -222,7 +168,6 @@ exports.obtenerUsuarios = async(req, res) => {
         const usuarios = await Usuario.find().select("-password");
         res.json({ ok: true, usuarios });
     } catch (error) {
-        console.error("❌ Error en obtenerUsuarios:", error);
         res.status(500).json({ ok: false, message: "Error al obtener usuarios" });
     }
 };
@@ -230,12 +175,9 @@ exports.obtenerUsuarios = async(req, res) => {
 exports.obtenerUsuario = async(req, res) => {
     try {
         const usuario = await Usuario.findById(req.params.id).select("-password");
-        if (!usuario) {
-            return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
-        }
+        if (!usuario) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         res.json({ ok: true, usuario });
     } catch (error) {
-        console.error("❌ Error en obtenerUsuario:", error);
         res.status(500).json({ ok: false, message: "Error al obtener usuario" });
     }
 };
@@ -243,15 +185,10 @@ exports.obtenerUsuario = async(req, res) => {
 exports.crearUsuario = async(req, res) => {
     try {
         const { nombre, email, password, rol } = req.body;
-
         const existe = await Usuario.findOne({ email });
-        if (existe) {
-            return res.status(400).json({ ok: false, message: "El usuario ya existe" });
-        }
-
+        if (existe) return res.status(400).json({ ok: false, message: "El usuario ya existe" });
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(password, salt);
-
         const usuario = new Usuario({
             nombre,
             email,
@@ -259,11 +196,9 @@ exports.crearUsuario = async(req, res) => {
             rol: rol || "usuario",
             verificado: true
         });
-
         await usuario.save();
         res.status(201).json({ ok: true, message: "Usuario creado correctamente" });
     } catch (error) {
-        console.error("❌ Error en crearUsuario:", error);
         res.status(500).json({ ok: false, message: "Error al crear usuario" });
     }
 };
@@ -274,14 +209,9 @@ exports.actualizarUsuario = async(req, res) => {
             req.params.id,
             req.body, { new: true }
         ).select("-password");
-
-        if (!usuario) {
-            return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
-        }
-
+        if (!usuario) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         res.json({ ok: true, usuario });
     } catch (error) {
-        console.error("❌ Error en actualizarUsuario:", error);
         res.status(500).json({ ok: false, message: "Error al actualizar usuario" });
     }
 };
@@ -289,17 +219,11 @@ exports.actualizarUsuario = async(req, res) => {
 exports.eliminarUsuario = async(req, res) => {
     try {
         const usuarioId = req.params.id;
-
         await ProgresoCurso.deleteMany({ usuario: usuarioId });
-
         const usuario = await Usuario.findByIdAndDelete(usuarioId);
-        if (!usuario) {
-            return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
-        }
-
+        if (!usuario) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         res.json({ ok: true, message: "Usuario y progreso eliminados correctamente" });
     } catch (error) {
-        console.error("❌ Error en eliminarUsuario:", error);
         res.status(500).json({ ok: false, message: "Error al eliminar usuario" });
     }
 };
@@ -307,62 +231,39 @@ exports.eliminarUsuario = async(req, res) => {
 exports.cambiarPassword = async(req, res) => {
     try {
         const { passwordNueva } = req.body;
-        if (!passwordNueva) {
-            return res.status(400).json({ ok: false, message: "La nueva contraseña es obligatoria" });
-        }
-
+        if (!passwordNueva) return res.status(400).json({ ok: false, message: "La nueva contraseña es obligatoria" });
         const salt = await bcrypt.genSalt(10);
         const hash = await bcrypt.hash(passwordNueva, salt);
-
         const usuario = await Usuario.findByIdAndUpdate(req.params.id, { password: hash });
-        if (!usuario) {
-            return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
-        }
-
+        if (!usuario) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
         res.json({ ok: true, message: "Contraseña actualizada correctamente" });
     } catch (error) {
-        console.error("❌ Error en cambiarPassword:", error);
         res.status(500).json({ ok: false, message: "Error al cambiar contraseña" });
     }
 };
 
 /* =====================================================
     💳 ESTADO DE SUSCRIPCIÓN
-    GET /api/usuario/suscripcion
 ===================================================== */
 exports.estadoSuscripcion = async(req, res) => {
     try {
         const usuarioId = req.usuario.id;
         const usuario = await Usuario.findById(usuarioId).select("suscripcion");
+        if (!usuario) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
 
-        if (!usuario) {
-            return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
-        }
-
-        // Si no tiene objeto de suscripción o está inactiva
-        // ✅ Ajustado: Compara contra 'active' según tu enum
+        // ✅ CORRECCIÓN: Tu modelo usa 'estado === active'
         if (!usuario.suscripcion || usuario.suscripcion.estado !== "active") {
-            return res.status(200).json({
-                ok: true,
-                activa: false,
-                mensaje: "No tienes una suscripción activa",
-            });
+            return res.status(200).json({ ok: true, activa: false, mensaje: "No tienes una suscripción activa" });
         }
 
         const ahora = new Date();
         const fechaFin = new Date(usuario.suscripcion.fechaFin);
 
-        // Doble verificación de seguridad por fecha
         if (ahora > fechaFin) {
             usuario.suscripcion.estado = "expired";
             usuario.suscripcion.mpStatus = "expired";
             await usuario.save();
-
-            return res.status(200).json({
-                ok: true,
-                activa: false,
-                mensaje: "La suscripción ha expirado",
-            });
+            return res.status(200).json({ ok: true, activa: false, mensaje: "La suscripción ha expirado" });
         }
 
         return res.status(200).json({
@@ -373,56 +274,45 @@ exports.estadoSuscripcion = async(req, res) => {
             fechaFin: usuario.suscripcion.fechaFin,
             status: usuario.suscripcion.mpStatus
         });
-
     } catch (error) {
         console.error("❌ Error estadoSuscripcion:", error.message);
-        return res.status(500).json({
-            ok: false,
-            message: "Error al consultar suscripción",
-        });
+        return res.status(500).json({ ok: false, message: "Error al consultar suscripción" });
     }
 };
 
 /* =====================================================
-    🚀 ACTIVACIÓN MANUAL DESDE EL PANEL DE ADMIN
-    POST /api/usuario/activar-premium-admin
+    🚀 ACTIVACIÓN MANUAL (SOLUCIÓN ERROR 400)
 ===================================================== */
 exports.activarSuscripcionAdmin = async(req, res) => {
     try {
-        const { usuarioId, horas, tipo } = req.body;
+        // Aceptamos usuarioId o id para robustez
+        const usuarioId = req.body.usuarioId || req.body.id;
+        const horas = req.body.horas;
 
         if (!usuarioId || !horas) {
             return res.status(400).json({ ok: false, message: "Faltan datos (ID o Horas)" });
         }
 
         const usuario = await Usuario.findById(usuarioId);
-        if (!usuario) {
-            return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
-        }
+        if (!usuario) return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
 
-        // ✅ Calcular fecha de fin sumando las horas a la fecha actual
         const fechaFin = new Date();
         fechaFin.setTime(fechaFin.getTime() + (parseInt(horas) * 60 * 60 * 1000));
 
-        // ✅ Mapeo exacto al esquema de tu modelo (estado: active)
+        // ✅ MAPEADO EXACTO AL MODELO: Usamos 'estado: active'
         usuario.suscripcion = {
             estado: "active",
-            tipo: tipo || "prueba_hora",
+            tipo: req.body.tipo || "prueba_hora",
             fechaInicio: new Date(),
             fechaFin: fechaFin,
             mpStatus: "approved",
             mercadoPagoId: `ADMIN_ACT_${req.usuario.id}`
         };
 
-        // Avisamos a Mongoose que el objeto 'suscripcion' cambió
         usuario.markModified('suscripcion');
         await usuario.save();
 
-        res.json({
-            ok: true,
-            message: `¡Premium activado por ${horas}h para ${usuario.nombre}!`,
-            fechaFin: fechaFin
-        });
+        res.json({ ok: true, message: `¡Premium activado por ${horas}h!`, fechaFin });
 
     } catch (error) {
         console.error("❌ Error en activarSuscripcionAdmin:", error);
