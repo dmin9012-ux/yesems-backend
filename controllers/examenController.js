@@ -1,5 +1,6 @@
 // controllers/examenController.js
 const ProgresoCurso = require("../models/ProgresoCurso");
+const Usuario = require("../models/Usuario"); // Importado para sincronización final
 const {
     obtenerPreguntasNivel,
     obtenerTotalNivelesCurso,
@@ -35,7 +36,8 @@ exports.obtenerExamenNivel = async(req, res) => {
             });
         }
 
-        // Nivel ya aprobado
+        // Permitir repetir si ya aprobó (repaso), o bloquear según tu lógica anterior.
+        // Aquí mantenemos tu bloqueo original:
         if (progreso.nivelesAprobados.includes(nivelNumero)) {
             return res.status(403).json({
                 ok: false,
@@ -43,18 +45,18 @@ exports.obtenerExamenNivel = async(req, res) => {
             });
         }
 
-        // Validar lecciones completadas
+        // Validar que todas las lecciones del nivel estén vistas
         const leccionesNivel = await obtenerLeccionesNivel(cursoId, nivelNumero);
         const completadas = leccionesNivel.filter(l => progreso.leccionesCompletadas.includes(l));
 
         if (completadas.length !== leccionesNivel.length) {
             return res.status(403).json({
                 ok: false,
-                message: "Debes completar todas las lecciones antes del examen",
+                message: "Debes completar todas las lecciones antes de realizar el examen",
             });
         }
 
-        // Intento pendiente
+        // Reanudar intento pendiente si existe
         let intentoPendiente = progreso.intentosExamen.find(i => i.nivel === nivelNumero && i.estado === "pendiente");
 
         if (intentoPendiente) {
@@ -72,7 +74,7 @@ exports.obtenerExamenNivel = async(req, res) => {
             });
         }
 
-        // Crear nuevo intento
+        // Crear nuevo intento (10 preguntas aleatorias del nivel)
         const preguntasBase = await obtenerPreguntasNivel(cursoId, nivelNumero, 10);
         if (!Array.isArray(preguntasBase) || preguntasBase.length === 0) {
             return res.status(404).json({
@@ -101,6 +103,7 @@ exports.obtenerExamenNivel = async(req, res) => {
         progreso.intentosExamen.push(nuevoIntento);
         await progreso.save();
 
+        // Enviamos las preguntas al front sin la respuesta correcta
         const preguntasResp = preguntasIntento.map(p => ({
             id: p.id,
             pregunta: p.pregunta,
@@ -140,7 +143,6 @@ exports.enviarExamenNivel = async(req, res) => {
             return res.status(403).json({ ok: false, message: "Este nivel ya fue aprobado" });
         }
 
-        // Buscamos el índice directamente para asegurar la mutación correcta en Mongoose
         const intentoIndex = progreso.intentosExamen.findIndex(
             i => i.nivel === nivelNumero && i.estado === "pendiente"
         );
@@ -161,13 +163,11 @@ exports.enviarExamenNivel = async(req, res) => {
         const porcentaje = Math.round((correctas / intento.preguntas.length) * 100);
         const aprobado = porcentaje >= 80;
 
-        // Actualizamos los datos del intento
         intento.respuestas = respuestas;
         intento.aprobado = aprobado;
         intento.porcentaje = porcentaje;
         intento.estado = "finalizado";
 
-        // IMPORTANTE: Notificar a Mongoose que el array de objetos cambió
         progreso.markModified('intentosExamen');
 
         let siguienteNivel = null;
@@ -176,17 +176,23 @@ exports.enviarExamenNivel = async(req, res) => {
         if (aprobado) {
             if (!progreso.nivelesAprobados.includes(nivelNumero)) {
                 progreso.nivelesAprobados.push(nivelNumero);
-                progreso.markModified('nivelesAprobados'); // Forzar detección de cambio
+                progreso.markModified('nivelesAprobados');
             }
 
             progreso.nivelesAprobados.sort((a, b) => a - b);
 
             const totalNiveles = await obtenerTotalNivelesCurso(cursoId);
+
             if (nivelNumero === totalNiveles) {
                 progreso.completado = true;
                 progreso.fechaFinalizacion = new Date();
                 progreso.constanciaEmitida = true;
                 cursoFinalizado = true;
+
+                // ✅ SINCRONIZACIÓN FINAL: Marcamos el curso como completado en el Usuario
+                await Usuario.findByIdAndUpdate(usuarioId, {
+                    $addToSet: { cursosCompletados: cursoId }
+                });
             } else {
                 siguienteNivel = nivelNumero + 1;
             }
@@ -200,7 +206,6 @@ exports.enviarExamenNivel = async(req, res) => {
             porcentaje,
             siguienteNivel,
             cursoFinalizado,
-            // Enviamos el objeto progreso completo para sincronizar el frontend correctamente
             progresoActualizado: progreso,
         });
 
@@ -224,14 +229,16 @@ exports.puedeAccederNivel = async(req, res) => {
 
         const progreso = await ProgresoCurso.findOne({ usuario: usuarioId, cursoId });
 
+        // Nivel 1 siempre es accesible si el middleware de suscripción dio permiso
         if (!progreso) {
             return res.json({ ok: true, puedeAcceder: nivelNumero === 1 });
         }
 
-        if (progreso.completado) return res.json({ ok: true, puedeAcceder: true }); // Permitir repaso
+        if (progreso.completado) return res.json({ ok: true, puedeAcceder: true });
         if (nivelNumero === 1) return res.json({ ok: true, puedeAcceder: true });
 
         const anteriorAprobado = progreso.nivelesAprobados.includes(nivelNumero - 1);
+
         if (!anteriorAprobado) {
             return res.json({
                 ok: true,
