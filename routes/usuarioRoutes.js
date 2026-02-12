@@ -1,12 +1,12 @@
 const express = require("express");
 const router = express.Router();
 
-// Nota: Verifica consistencia de 'controllers' vs 'Controllers'
+// Control de consistencia en el nombre del archivo
 const usuarioController = require("../controllers/UsuarioController");
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
 
-console.log("🔥 UsuarioRoutes cargado y configurado");
+console.log("🔥 UsuarioRoutes: Rutas de administración y suscripción configuradas");
 
 /* =====================================================
     🔐 RECUPERACIÓN DE CONTRASEÑA (Públicas)
@@ -29,17 +29,20 @@ router.delete("/perfil/me", auth, usuarioController.eliminarMiCuenta);
 router.get("/suscripcion", auth, usuarioController.estadoSuscripcion);
 
 /* =====================================================
-    🛡️ ADMINISTRACIÓN (SOLO ADMIN)
+    🛡️ ADMINISTRACIÓN (PROTEGIDAS POR AUTH Y ADMIN)
    ===================================================== */
 
-// ✅ NUEVA RUTA: Activar suscripción manualmente desde el Panel
+// ⚡ ACTIVACIÓN PREMIUM: Esta debe ir antes de las rutas con :id para evitar conflictos
 router.post("/activar-premium-admin", auth, admin, usuarioController.activarSuscripcionAdmin);
 
-router.put("/password/:id", auth, admin, usuarioController.cambiarPassword);
-router.get("/", auth, admin, usuarioController.obtenerUsuarios);
+// Gestión de usuarios por ID
 router.get("/:id", auth, admin, usuarioController.obtenerUsuario);
-router.post("/", auth, admin, usuarioController.crearUsuario);
 router.put("/:id", auth, admin, usuarioController.actualizarUsuario);
 router.delete("/:id", auth, admin, usuarioController.eliminarUsuario);
+router.put("/password/:id", auth, admin, usuarioController.cambiarPassword);
+
+// Listado y creación global
+router.get("/", auth, admin, usuarioController.obtenerUsuarios);
+router.post("/", auth, admin, usuarioController.crearUsuario);
 
 module.exports = router;
