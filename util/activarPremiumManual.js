@@ -1,22 +1,29 @@
 const mongoose = require("mongoose");
-const Usuario = require("../models/Usuario"); // 👈 ASEGÚRATE DE QUE LA RUTA SEA CORRECTA
-require("dotenv").config();
+const Usuario = require("../models/Usuario");
+const path = require("path");
+
+// ✅ Buscamos el .env una carpeta arriba de 'util'
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 
 const activarUsuarioManual = async(email, horas = 1) => {
     try {
-        // 1. Conexión a la base de datos
-        // Usará la variable MONGODB_URI de tu archivo .env
+        // ✅ Usamos MONGO_URI (tal cual está en tu .env)
+        const uri = process.env.MONGO_URI;
+
+        if (!uri) {
+            throw new Error("No se encontró MONGO_URI en el archivo .env. Revisa el nombre de la variable.");
+        }
+
         if (mongoose.connection.readyState === 0) {
-            await mongoose.connect(process.env.MONGODB_URI);
-            console.log("📡 Conectado a MongoDB...");
+            await mongoose.connect(uri);
+            console.log("📡 Conectado a MongoDB con éxito...");
         }
 
         const fechaInicio = new Date();
         const fechaFin = new Date();
         fechaFin.setHours(fechaFin.getHours() + horas);
 
-        // 2. Actualización
-        const usuarioActualizado = await Usuario.findOneAndUpdate({ email: email }, {
+        const usuarioActualizado = await Usuario.findOneAndUpdate({ email: email.toLowerCase().trim() }, {
             $set: {
                 "suscripcion.estado": "active",
                 "suscripcion.tipo": "prueba_hora",
@@ -28,7 +35,7 @@ const activarUsuarioManual = async(email, horas = 1) => {
         }, { new: true, runValidators: true });
 
         if (!usuarioActualizado) {
-            console.log(`❌ No se encontró el usuario: ${email}`);
+            console.log(`❌ No se encontró el usuario con email: ${email}`);
             return;
         }
 
@@ -47,6 +54,5 @@ const activarUsuarioManual = async(email, horas = 1) => {
     }
 };
 
-// 🚀 ESTO ES LO QUE HACE QUE CORRA:
-// Cambia el correo por el del usuario que quieras regalarle la suscripción
+// 🚀 Ejecutamos para Ferna
 activarUsuarioManual("fortisfernando7@gmail.com", 1);
