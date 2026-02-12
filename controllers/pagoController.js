@@ -2,15 +2,10 @@ const { MercadoPagoConfig, Payment } = require('mercadopago');
 const Usuario = require("../models/Usuario");
 const mercadoPagoService = require("../services/mercadoPagoService");
 
-// Configuración del cliente con el Access Token de tus variables de entorno
 const client = new MercadoPagoConfig({
     accessToken: process.env.MP_ACCESS_TOKEN
 });
 
-/* =========================================
-    💳 CREAR PREFERENCIA DE PAGO
-    POST /api/pago/crear-preferencia
-========================================= */
 exports.crearPagoSuscripcion = async(req, res) => {
     try {
         const usuarioId = req.usuario.id;
@@ -33,40 +28,36 @@ exports.crearPagoSuscripcion = async(req, res) => {
     }
 };
 
-/* =========================================
-    🔔 WEBHOOK (Notificación de Mercado Pago)
-    POST /api/pago/webhook
-========================================= */
 exports.webhookMercadoPago = async(req, res) => {
+    // 🔍 LOG 1: Ver si Mercado Pago entró al Webhook
+    console.log("🔔 Webhook recibido. Query:", req.query, "Body:", req.body);
+
     const query = req.query;
     const body = req.body;
-    const topic = query.topic || query.type;
+    const topic = query.topic || query.type || (body && body.type);
 
     try {
         if (topic === "payment") {
-            const paymentId = query.id || (body.data && body.data.id);
+            const paymentId = query.id || (body.data && body.data.id) || body.id;
+            console.log("💳 Procesando pago ID:", paymentId);
 
             if (!paymentId) {
+                console.warn("⚠️ No se encontró paymentId");
                 return res.status(200).send("OK");
             }
 
             const payment = new Payment(client);
             const data = await payment.get({ id: paymentId });
 
+            console.log("📊 Estado del pago en MP:", data.status);
+
             if (data.status === "approved") {
                 const usuarioId = data.external_reference;
+                console.log("👤 Intentando activar usuario ID:", usuarioId);
 
                 const fechaInicio = new Date();
                 const fechaFin = new Date();
-
-                /** * ==========================================
-                 * ⏱️ CONFIGURACIÓN DE DURACIÓN (MODO PRUEBA)
-                 * ==========================================
-                 */
-                // Producción: fechaFin.setDate(fechaFin.getDate() + 7); 
-
-                // 🛠️ MODO PRUEBA: 1 HORA (60 minutos)
-                fechaFin.setHours(fechaFin.getHours() + 1);
+                fechaFin.setHours(fechaFin.getHours() + 1); // 1 HORA
 
                 const usuario = await Usuario.findById(usuarioId);
 
@@ -81,15 +72,18 @@ exports.webhookMercadoPago = async(req, res) => {
                     };
 
                     await usuario.save();
-                    console.log(`✅ MODO PRUEBA: Suscripción de 1 HORA activada para: ${usuario.email}`);
+                    console.log(`✅ ÉXITO: Usuario ${usuario.email} ahora es PREMIUM por 1 hora.`);
+                } else {
+                    console.error("❌ ERROR: Usuario no encontrado en DB con ID:", usuarioId);
                 }
             }
         }
 
+        // Siempre responder 200 a Mercado Pago
         res.status(200).send("OK");
 
     } catch (error) {
-        console.error("❌ Error en Webhook:", error.message);
+        console.error("❌ Error crítico en Webhook:", error.message);
         res.status(500).send("Error interno");
     }
 };
