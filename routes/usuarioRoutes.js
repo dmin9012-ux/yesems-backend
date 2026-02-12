@@ -31,6 +31,10 @@ router.get("/suscripcion", auth, usuarioController.estadoSuscripcion);
 /* =====================================================
     🛡️ ADMINISTRACIÓN (SOLO ADMIN)
    ===================================================== */
+
+// ✅ NUEVA RUTA: Activar suscripción manualmente desde el Panel
+router.post("/activar-premium-admin", auth, admin, usuarioController.activarSuscripcionAdmin);
+
 router.put("/password/:id", auth, admin, usuarioController.cambiarPassword);
 router.get("/", auth, admin, usuarioController.obtenerUsuarios);
 router.get("/:id", auth, admin, usuarioController.obtenerUsuario);

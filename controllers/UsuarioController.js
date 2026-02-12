@@ -380,3 +380,51 @@ exports.estadoSuscripcion = async(req, res) => {
         });
     }
 };
+
+/* =====================================================
+    🚀 ACTIVACIÓN MANUAL DESDE EL PANEL DE ADMIN
+    POST /api/usuario/activar-premium-admin
+===================================================== */
+exports.activarSuscripcionAdmin = async(req, res) => {
+    try {
+        const { usuarioId, horas, tipo } = req.body;
+
+        // 1. Validaciones básicas
+        if (!usuarioId || !horas) {
+            return res.status(400).json({ ok: false, message: "Faltan datos (ID o Horas)" });
+        }
+
+        const usuario = await Usuario.findById(usuarioId);
+        if (!usuario) {
+            return res.status(404).json({ ok: false, message: "Usuario no encontrado" });
+        }
+
+        // 2. Calcular tiempos
+        const fechaInicio = new Date();
+        const fechaFin = new Date();
+        // Convertimos horas a milisegundos y sumamos
+        fechaFin.setMilliseconds(fechaFin.getMilliseconds() + (horas * 60 * 60 * 1000));
+
+        // 3. Actualizar objeto de suscripción
+        usuario.suscripcion = {
+            estado: "active",
+            tipo: tipo || "prueba_hora",
+            fechaInicio: fechaInicio,
+            fechaFin: fechaFin,
+            mercadoPagoId: `ADMIN_ACT_BY_${req.usuario.id}`, // Guardamos quién lo activó
+            mpStatus: "approved"
+        };
+
+        await usuario.save();
+
+        res.json({
+            ok: true,
+            message: `Suscripción activada para ${usuario.nombre} por ${horas} hora(s).`,
+            fechaFin: fechaFin
+        });
+
+    } catch (error) {
+        console.error("❌ Error en activarSuscripcionAdmin:", error);
+        res.status(500).json({ ok: false, message: "Error al activar suscripción" });
+    }
+};
