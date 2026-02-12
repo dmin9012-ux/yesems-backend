@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const Usuario = require("./models/Usuario"); // 👈 ASEGÚRATE DE QUE LA RUTA SEA CORRECTA
+const Usuario = require("../models/Usuario"); // 👈 ASEGÚRATE DE QUE LA RUTA SEA CORRECTA
 require("dotenv").config();
 
 const activarUsuarioManual = async(email, horas = 1) => {
