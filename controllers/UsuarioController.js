@@ -382,7 +382,7 @@ exports.estadoSuscripcion = async(req, res) => {
 };
 
 /* =====================================================
-    🚀 ACTIVACIÓN MANUAL DESDE EL PANEL DE ADMIN
+    🚀 ACTIVACIÓN MANUAL DESDE EL PANEL DE ADMIN (CORREGIDO)
     POST /api/usuario/activar-premium-admin
 ===================================================== */
 exports.activarSuscripcionAdmin = async(req, res) => {
@@ -402,19 +402,22 @@ exports.activarSuscripcionAdmin = async(req, res) => {
         // 2. Calcular tiempos
         const fechaInicio = new Date();
         const fechaFin = new Date();
-        // Convertimos horas a milisegundos y sumamos
-        fechaFin.setMilliseconds(fechaFin.getMilliseconds() + (horas * 60 * 60 * 1000));
+        // Convertimos horas a milisegundos y sumamos a la fecha actual
+        fechaFin.setTime(fechaFin.getTime() + (parseInt(horas) * 60 * 60 * 1000));
 
         // 3. Actualizar objeto de suscripción
+        // IMPORTANTE: 'activa' debe ser true para que coincida con obtenerPerfil y estadoSuscripcion
         usuario.suscripcion = {
-            estado: "active",
+            activa: true,
             tipo: tipo || "prueba_hora",
             fechaInicio: fechaInicio,
             fechaFin: fechaFin,
-            mercadoPagoId: `ADMIN_ACT_BY_${req.usuario.id}`, // Guardamos quién lo activó
-            mpStatus: "approved"
+            mpStatus: "approved",
+            mercadoPagoId: `ADMIN_ACT_BY_${req.usuario.id}`
         };
 
+        // Avisamos a Mongoose que el objeto 'suscripcion' cambió (útil para Mixed types)
+        usuario.markModified('suscripcion');
         await usuario.save();
 
         res.json({
@@ -425,6 +428,6 @@ exports.activarSuscripcionAdmin = async(req, res) => {
 
     } catch (error) {
         console.error("❌ Error en activarSuscripcionAdmin:", error);
-        res.status(500).json({ ok: false, message: "Error al activar suscripción" });
+        res.status(500).json({ ok: false, message: "Error interno al activar suscripción" });
     }
 };
