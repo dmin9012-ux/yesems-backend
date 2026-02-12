@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-// Nota: Verifica consistencia de 'controllers' vs 'Controllers'
+// Importación del controlador y middlewares
 const usuarioController = require("../controllers/UsuarioController");
 const auth = require("../middleware/auth");
 const admin = require("../middleware/admin");
@@ -32,14 +32,18 @@ router.get("/suscripcion", auth, usuarioController.estadoSuscripcion);
     🛡️ ADMINISTRACIÓN (SOLO ADMIN)
    ===================================================== */
 
-// ✅ NUEVA RUTA: Activar suscripción manualmente desde el Panel
+// 1️⃣ RUTAS ESTÁTICAS (Deben ir primero)
+// ✅ Activar suscripción manualmente (1 hora automática según controlador)
 router.post("/activar-premium-admin", auth, admin, usuarioController.activarSuscripcionAdmin);
 
-router.put("/password/:id", auth, admin, usuarioController.cambiarPassword);
+// ✅ Obtener todos los usuarios y crear nuevo
 router.get("/", auth, admin, usuarioController.obtenerUsuarios);
-router.get("/:id", auth, admin, usuarioController.obtenerUsuario);
 router.post("/", auth, admin, usuarioController.crearUsuario);
+
+// 2️⃣ RUTAS DINÁMICAS (Con :id, van al final)
+router.get("/:id", auth, admin, usuarioController.obtenerUsuario);
 router.put("/:id", auth, admin, usuarioController.actualizarUsuario);
 router.delete("/:id", auth, admin, usuarioController.eliminarUsuario);
+router.put("/password/:id", auth, admin, usuarioController.cambiarPassword);
 
 module.exports = router;
