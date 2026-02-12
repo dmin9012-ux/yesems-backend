@@ -33,7 +33,8 @@ const UsuarioSchema = new mongoose.Schema({
         },
         tipo: {
             type: String,
-            enum: ["semanal", "mensual", "prueba_corta", "ninguna"],
+            // ✅ CORRECCIÓN: Agregamos "prueba_hora" a la lista de permitidos
+            enum: ["semanal", "mensual", "prueba_corta", "prueba_hora", "ninguna"],
             default: "ninguna"
         },
         fechaInicio: { type: Date, default: null },
